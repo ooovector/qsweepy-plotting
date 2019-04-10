@@ -1,0 +1,31 @@
+.sql-result-column-header {
+	background-color: #c0c0c0;
+	border: 1px solid black;
+}
+
+.id-column-header{
+	background-color: #808080;
+	border: 1px solid black;
+}
+
+.sql-result {
+	background-color: #ffffff;
+	border: 1px solid black;
+}
+
+.id {
+	background-color: #c0c0c0;
+	min-width: 50px;
+	border: 1px solid black;
+}
+
+.sql-result-selected {
+	background-color: #ffc0c0;
+	border: 1px solid black;
+}
+
+.id-selected {
+	background-color: #ff8080;
+	min-width: 50px;
+	border: 1px solid black;
+}
