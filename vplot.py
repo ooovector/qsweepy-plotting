@@ -32,7 +32,7 @@ app.css.config.serve_locally = True
 app.scripts.config.serve_locally = True
 db = database.database()
 
-direct_db = psycopg2.connect(database='qsweepy', user='qsweepy', password='qsweepy')
+
 default_query = 'SELECT * FROM data;'
 
 def data_to_dict(data):
@@ -121,6 +121,7 @@ def available_traces_table(data=[], column_static_dropdown=[], column_conditiona
 
 def render_available_traces_table(loaded_measurements, intermediate_value_meas, current_traces_modified, current_traces, current_selected_traces_modified, current_selected_traces, current_conditional_dropdowns):
 	# if old state exists, start with it, otherwise default to empty selection
+	if loaded_measurements is None: loaded_measurements = []
 	if current_traces_modified: current_traces = current_traces_modified
 	if current_selected_traces_modified: current_selected_traces = current_selected_traces_modified
 	
@@ -206,7 +207,10 @@ def app_layout():
 	[Input(component_id = 'meas-id', component_property='derived_virtual_data'),
 	 Input(component_id = 'meas-id', component_property="derived_virtual_selected_rows")])#Input(component_id = 'my_dropdown', component_property='value')])
 def write_meas_info(measurements, selected_measurement):
-	value = measurements[selected_measurement[0]]['id']
+	try:
+		value = measurements[selected_measurement[0]]['id']
+	except:
+		return []
 	with db_session:
 		if value == None: return 
 		state = save_exdir.load_exdir(db.Data[int(value)].filename ,db)
@@ -214,6 +218,8 @@ def write_meas_info(measurements, selected_measurement):
 		references = pd.DataFrame([{'this':i.this.id, 'that': i.that.id, 'ref_type': i.ref_type}
 									for i in select(ref for ref in db.Reference if ref.this.id == int(value))], columns=['this', 'that', 'ref_type'])
 		metadata = pd.DataFrame([(k,v) for k,v in state.metadata.items()], columns=['name', 'value'], index=np.arange(len(state.metadata)), dtype=object)
+		
+		print (state.metadata)
 		
 		#print (metadata.to_dict('rows'), state.metadata)
 		retval =  [html.P(['Start: '+state.start.strftime('%d-%m-%Y %H:%M:%S.%f'),
@@ -243,13 +249,19 @@ def write_meas_info(measurements, selected_measurement):
 		return retval
 	
 @app.callback(Output('live-plot-these-measurements', 'figure'),
-				[Input(component_id="available-traces-table", component_property="derived_virtual_data"), 
-				 Input(component_id="available-traces-table", component_property="data"), 
-				 Input(component_id="available-traces-table", component_property="derived_virtual_selected_rows"), 
-				 Input(component_id="available-traces-table", component_property="selected_rows"), 
-				 Input(component_id='cross-section-configuration', component_property='derived_virtual_data'),
-				 Input('interval-component', 'n_intervals')])
-def render_plots(all_traces, all_traces_initial, selected_trace_ids, selected_trace_ids_initial, cross_sections, n_intervals):
+				[Input(component_id='cross-section-configuration', component_property='derived_virtual_data')],
+				 state=[
+				 State(component_id="available-traces-table", component_property="derived_virtual_data"), 
+				 State(component_id="available-traces-table", component_property="data"), 
+				 State(component_id="available-traces-table", component_property="derived_virtual_selected_rows"), 
+				 State(component_id="available-traces-table", component_property="selected_rows"), 
+				 
+				 #Input('interval-component', 'n_intervals')
+				 ])
+def render_plots(cross_sections, all_traces, all_traces_initial, selected_trace_ids, selected_trace_ids_initial, #, n_intervals
+):
+	from time import time
+	start_time= time()
 	if not all_traces:
 		all_traces = all_traces_initial
 	if not selected_trace_ids:
@@ -260,8 +272,10 @@ def render_plots(all_traces, all_traces_initial, selected_trace_ids, selected_tr
 		#print ('cross_sections: ', cross_sections)
 	selected_traces = pd.DataFrame([all_traces[i] for i in range(len(all_traces)) if i in selected_trace_ids], 
 									columns=['id', 'dataset', 'op', 'style', 'color', 'x-axis', 'y-axis', 'row', 'col'])
-	
-	return plot(selected_traces, cross_sections, db)
+	p = plot(selected_traces, cross_sections, db)
+	end_time = time()
+	print ('render_plots time: ', end_time-start_time)
+	return p
 	
 def query_list():
 	result = html.Ul([html.Li(children="BOMZ")])
@@ -305,6 +319,7 @@ def update_query_result(n_clicks_execute, n_clicks_select_measurements_open, que
 	#n_clicks_registered = n_clicks
 	selected_measurements = pd.DataFrame(selected_measurements, columns=['id', 'label'])
 	try:
+		direct_db = psycopg2.connect(database='qsweepy', user='qsweepy', password='qsweepy')
 		dataframe = psql.read_sql(query, direct_db)
 		
 		if 'id' in dataframe.columns:
@@ -328,6 +343,8 @@ def update_query_result(n_clicks_execute, n_clicks_select_measurements_open, que
 	except Exception as e:
 		error = str(e)
 		return html.Div(children=error)
+	finally:
+		direct_db.close()
 
 @app.callback(
 	Output(component_id='modal-select-measurements', component_property='style'),
