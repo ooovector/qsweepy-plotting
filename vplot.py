@@ -1,4 +1,5 @@
-from qsweepy import*
+# import qsweepy
+from qsweepy import *
 from qsweepy.ponyfiles import *
 import dash
 import dash_core_components as dcc
@@ -7,15 +8,15 @@ import dash_table
 import numpy as np
 import webcolors
 import datetime
-from qsweepy.plotly_plot import *
+from qsweepy.libraries.plotly_plot import *
 
 #import exdir
 #from data_structures import *
 import plotly.graph_objs as go
 from pony.orm import *
 import plotly.io as pio
-#from database import database
-from plotly import*
+from qsweepy.ponyfiles import database
+from plotly import *
 from cmath import phase
 #from datetime import datetime
 from dash.dependencies import Input, Output, State
@@ -28,8 +29,8 @@ log = logging.getLogger('werkzeug')
 log.setLevel(logging.ERROR)
 
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
-app = dash.Dash(__name__, external_stylesheets=external_stylesheets, static_folder='static')
-app.config['suppress_callback_exceptions']=True
+app = dash.Dash(__name__, external_stylesheets=external_stylesheets)#, static_folder='static')
+app.config['suppress_callback_exceptions'] = True  # Set to `True` if your layout is dynamic, to bypass these checks.
 app.css.config.serve_locally = True
 app.scripts.config.serve_locally = True
 db = database.MyDatabase()
@@ -44,7 +45,7 @@ default_query = ('SELECT qubit_id_metadata.value as qubit_id, data.* FROM data\n
                  '\n')
 
 def data_to_dict(data):
-    return { 'id': data.id,
+    return {'id': data.id,
              #comment': data.comment,
              'sample_name': data.sample_name,
              'time_start': data.time_start,
@@ -70,7 +71,10 @@ def measurement_table():
     return dash_table.DataTable(
         id="meas-id",
         columns=[{'id': 'id', 'name':'id'}, {'id': 'label', 'name':'label'}],
-        data=default_measurements(db), editable=True, row_deletable=True, row_selectable='single')
+        data=default_measurements(db),
+        editable=True,
+        row_deletable=True,
+        row_selectable='single')
 
 @app.callback(
     Output(component_id="meas-id", component_property="data"),
@@ -113,8 +117,8 @@ def available_traces_table(data=[], column_static_dropdown=[], column_conditiona
                                 editable=True,
                                 row_selectable='multi',
                                 selected_rows=selected_rows,
-                                column_static_dropdown=column_static_dropdown,
-                                column_conditional_dropdowns=column_conditional_dropdowns)
+                                dropdown=column_static_dropdown,
+                                dropdown_conditional=column_conditional_dropdowns)
 
 @app.callback(
     Output(component_id="available-traces-container", component_property="children"),
