@@ -1,4 +1,5 @@
-from qsweepy import*
+import qsweepy
+from qsweepy import *
 from qsweepy.ponyfiles import *
 import dash
 import dash_core_components as dcc
@@ -7,17 +8,16 @@ import dash_table
 import numpy as np
 import webcolors
 import datetime
-from qsweepy.plotly_plot import *
+from qsweepy.libraries.plotly_plot import *
 
-#import exdir
-#from data_structures import *
+import exdir
+from qsweepy.ponyfiles.data_structures import *
 import plotly.graph_objs as go
 from pony.orm import *
 import plotly.io as pio
-#from database import database
-from plotly import*
+from qsweepy.ponyfiles import database
+from plotly import *
 from cmath import phase
-#from datetime import datetime
 from dash.dependencies import Input, Output, State
 import pandas as pd
 import psycopg2
@@ -28,12 +28,12 @@ log = logging.getLogger('werkzeug')
 log.setLevel(logging.ERROR)
 
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
-app = dash.Dash(__name__, external_stylesheets=external_stylesheets, static_folder='static')
-app.config['suppress_callback_exceptions']=True
+app = dash.Dash(__name__, external_stylesheets=external_stylesheets)#, static_folder='static')
+app.config['suppress_callback_exceptions'] = True  # Set to `True` if your layout is dynamic, to bypass these checks.
 app.css.config.serve_locally = True
 app.scripts.config.serve_locally = True
 db = database.MyDatabase()
-path = "C:\\tupoye-govno\\"
+path = "/Users/mikhailgoncharov/QtLab/data"
 
 
 default_query = ('SELECT qubit_id_metadata.value as qubit_id, data.* FROM data\n'
@@ -43,34 +43,24 @@ default_query = ('SELECT qubit_id_metadata.value as qubit_id, data.* FROM data\n
                  'ORDER BY id DESC;\n'
                  '\n')
 
-def data_to_dict(data):
-    return { 'id': data.id,
-             #comment': data.comment,
-             'sample_name': data.sample_name,
-             'time_start': data.time_start,
-             'time_stop': data.time_stop,
-             #'filename': data.filename,
-             'type_revision': data.type_revision,
-             'incomplete': data.incomplete,
-             'invalid': data.invalid,
-             'owner': data.owner,
-             }
-
-def generate_table(dataframe, max_rows=10):
-    return html.Table(
-        # Header
-        [html.Tr([html.Th(col) for col in dataframe.columns])] +
-
-        # Body
-        [html.Tr([
-            html.Td(str(dataframe.iloc[i][col])) for col in dataframe.columns
-        ]) for i in range(min(len(dataframe), max_rows))])
+# def generate_table(dataframe, max_rows=10):
+#     return html.Table(
+#         # Header
+#         [html.Tr([html.Th(col) for col in dataframe.columns])] +
+#
+#         # Body
+#         [html.Tr([
+#             html.Td(str(dataframe.iloc[i][col])) for col in dataframe.columns
+#         ]) for i in range(min(len(dataframe), max_rows))])
 
 def measurement_table():
     return dash_table.DataTable(
         id="meas-id",
-        columns=[{'id': 'id', 'name':'id'}, {'id': 'label', 'name':'label'}],
-        data=default_measurements(db), editable=True, row_deletable=True, row_selectable='single')
+        columns=[{'id' : 'id', 'name' : 'id'}, {'id': 'label', 'name' : 'label'}],
+        data=default_measurements(db),
+        editable=True,
+        row_deletable=True,
+        row_selectable='single')
 
 @app.callback(
     Output(component_id="meas-id", component_property="data"),
@@ -85,6 +75,10 @@ def render_measurement_table(query_results, query_results_selected, current_meas
         return []
 
     #print(query_results, query_results_selected, current_measurements)
+    if query_results is None:
+        query_results = []
+    if query_results_selected is None:
+        query_results_selected = []
     selected_measurement_ids = [query_results[measurement]['id'] for measurement in query_results_selected]
     deselected_measurement_ids = [measurement['id'] for measurement in query_results if not measurement['id'] in selected_measurement_ids]
     old_measurement_ids = [measurement['id'] for measurement in current_measurements]
@@ -94,27 +88,26 @@ def render_measurement_table(query_results, query_results_selected, current_meas
                         for measurement in query_results_selected if (not query_results[measurement]['id'] in old_measurement_ids)]
 
     return old_measurements+new_measurements
-
 def available_traces_table(data=[], column_static_dropdown=[], column_conditional_dropdowns=[], selected_rows=None):
-    #print (column_static_dropdown, column_conditional_dropdowns)
     if selected_rows is None:
         selected_rows = np.arange(len(data))
     return dash_table.DataTable(id="available-traces-table",
-                                columns=[{'id': 'id', 'name': 'id'},
-                                         {'id': 'dataset', 'name': 'dataset'},
-                                         {'id': 'op', 'name': 'op'},
-                                         {'id': 'style', 'name': 'style', 'presentation':'dropdown'},
-                                         {'id': 'color', 'name': 'color', 'presentation':'dropdown'},
-                                         {'id': 'x-axis', 'name': 'x-axis', 'presentation':'dropdown'},
-                                         {'id': 'y-axis', 'name': 'y-axis', 'presentation':'dropdown'},
-                                         {'id': 'row', 'name':'row'},
-                                         {'id': 'col', 'name':'col'}],
                                 data=data,
+                                columns=[
+                                    {'id': 'id', 'name': 'id'},
+                                    {'id': 'dataset', 'name': 'dataset'},
+                                    {'id': 'op', 'name': 'op'},
+                                    {'id': 'style', 'name': 'style', 'presentation':'dropdown'},
+                                    {'id': 'color', 'name': 'color', 'presentation':'dropdown'},
+                                    {'id': 'x-axis', 'name': 'x-axis', 'presentation':'dropdown'},
+                                    {'id': 'y-axis', 'name': 'y-axis', 'presentation':'dropdown'},
+                                    {'id': 'row', 'name': 'row'},
+                                    {'id': 'col', 'name': 'col'}],
                                 editable=True,
                                 row_selectable='multi',
                                 selected_rows=selected_rows,
-                                column_static_dropdown=column_static_dropdown,
-                                column_conditional_dropdowns=column_conditional_dropdowns)
+                                dropdown=column_static_dropdown,
+                                dropdown_conditional=column_conditional_dropdowns)
 
 @app.callback(
     Output(component_id="available-traces-container", component_property="children"),
@@ -124,9 +117,8 @@ def available_traces_table(data=[], column_static_dropdown=[], column_conditiona
            State(component_id="available-traces-table", component_property="data"),
            State(component_id="available-traces-table", component_property="derived_virtual_selected_rows"),
            State(component_id="available-traces-table", component_property="selected_rows"),
-           State(component_id="available-traces-table", component_property="column_conditional_dropdowns")]
+           State(component_id="available-traces-table", component_property="dropdown_conditional")]
 )
-
 def render_available_traces_table(loaded_measurements, intermediate_value_meas, current_traces_modified, current_traces, current_selected_traces_modified, current_selected_traces, current_conditional_dropdowns):
 
     print("LOL NCLICKS UPDATE TRACES")
@@ -140,20 +132,30 @@ def render_available_traces_table(loaded_measurements, intermediate_value_meas, 
     if len(current_selected_traces): old_traces = [current_traces[i] for i in current_selected_traces]
     else: old_traces = []
 
-    if len(current_conditional_dropdowns): conditional_dropdowns = current_conditional_dropdowns[0]['dropdowns']
+    if current_conditional_dropdowns is None:
+        current_conditional_dropdowns = []
+    elif len(current_conditional_dropdowns):
+        conditional_dropdowns = current_conditional_dropdowns#[0]['dropdowns']
     else: conditional_dropdowns = []
 
     colors = [c for c in webcolors.CSS3_NAMES_TO_HEX.keys()]
     styles = ['2d', '-', '.', 'o']
 
-    data, conditional_dropdowns = add_default_traces(loaded_measurements, db, old_traces = old_traces, conditional_dropdowns = conditional_dropdowns)
-    column_static_dropdown = [{'id': 'style', 'dropdown': [{'label':s, 'value': s} for id, s in enumerate(styles)]},
-                              {'id': 'color', 'dropdown': [{'label':c, 'value': c} for c in colors]}]
+    data, conditional_dropdowns = add_default_traces(loaded_measurements,
+                                                     db, old_traces=old_traces,
+                                                     conditional_dropdowns =conditional_dropdowns)
+    # column_static_dropdown = [{'id': 'style', 'dropdown': [{'label':s, 'value': s} for id, s in enumerate(styles)]},
+    #                           {'id': 'color', 'dropdown': [{'label':c, 'value': c} for c in colors]}]
+
+    column_static_dropdown = {
+        'style' : {'options' : [{'label': s, 'value': s} for s in styles]},
+        'color' : {'options' : [{'label': c, 'value': c} for c in colors]}}
 
     return available_traces_table(data,
                                   column_static_dropdown,
-                                  [{'id': 'x-axis', 'dropdowns':conditional_dropdowns},
-                                   {'id': 'y-axis', 'dropdowns':conditional_dropdowns}],
+                                  conditional_dropdowns,
+                                  # [{'id': 'x-axis', 'dropdowns': conditional_dropdowns},
+                                  #  {'id': 'y-axis', 'dropdowns': conditional_dropdowns}],
                                   np.arange(len(old_traces)) if len(current_traces) else np.arange(len(data)))
 
 @app.callback(Output('cross-section-configuration', 'data'),
@@ -222,10 +224,12 @@ def app_layout():
 	state=[State('live-plot-these-measurements', 'figure')]
 )
 def save_svg(n_clicks, figure):
-	import uuid
-	unique_filename = str(uuid.uuid4())
-	pio.write_image(figure, path+"{}.svg".format(unique_filename), width=1200, height=900)
-	return []
+    import uuid
+    if n_clicks is None:
+        return []
+    unique_filename = str(uuid.uuid4())
+    pio.write_image(figure, path+"{}.svg".format(unique_filename), width=1200, height=900)
+    return []
 	
 @app.callback(
     Output("available-traces-table", "selected_rows"),
@@ -252,10 +256,10 @@ def write_meas_info(measurements, selected_measurement):
                                    for i in select(ref for ref in db.Reference if ref.this.id == int(value))], columns=['this', 'that', 'ref_type'])
         metadata = pd.DataFrame([(k,v) for k,v in state.metadata.items()], columns=['name', 'value'], index=np.arange(len(state.metadata)), dtype=object)
 
-        print (state.metadata)
+        print(state.metadata)
 
         #print (metadata.to_dict('rows'), state.metadata)
-        retval =  [html.P(['Start: '+state.start.strftime('%d-%m-%Y %H:%M:%S.%f'),
+        retval = [html.P(['Start: '+state.start.strftime('%d-%m-%Y %H:%M:%S.%f'),
                            html.Br(),
                            'Stop: '+state.stop.strftime('%d-%m-%Y %H:%M:%S.%f')]),
                    #html.Div(html.P('Owner: ' + str(state.owner))),
@@ -282,9 +286,10 @@ def write_meas_info(measurements, selected_measurement):
         return retval
 
 @app.callback(Output('live-plot-these-measurements', 'figure'),
-              [Input(component_id='cross-section-configuration', component_property='derived_virtual_data')],
+              [Input(component_id='cross-section-configuration', component_property='derived_virtual_data'),
+               Input(component_id="available-traces-table", component_property="derived_virtual_data")],
               state=[
-                  State(component_id="available-traces-table", component_property="derived_virtual_data"),
+                  # State(component_id="available-traces-table", component_property="derived_virtual_data"),
                   State(component_id="available-traces-table", component_property="data"),
                   State(component_id="available-traces-table", component_property="derived_virtual_selected_rows"),
                   State(component_id="available-traces-table", component_property="selected_rows"),
@@ -327,7 +332,7 @@ def modal_content():
                              ]),
                              html.Div(className="modal-right", children=[
                                  html.Div(className="modal-right-content", children=[
-                                     html.Div(children=[dcc.Textarea(id='query', value=default_query)]),
+                                     html.Div(children=[dcc.Textarea(id='query', value=default_query, style={'width': '100%', 'height': 100})]),
                                      html.Div(children=[html.Button('Execute', id='execute'),
                                                         html.Button('Select all', id='select-all'),
                                                         html.Button('Deselect all', id='deselect-all')]),
