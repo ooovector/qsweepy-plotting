@@ -35,14 +35,13 @@ app.scripts.config.serve_locally = True
 db = database.MyDatabase()
 path = "/Users/mikhailgoncharov/QtLab/data"
 
-
 default_query = ('SELECT qubit_id_metadata.value as qubit_id, data.* FROM data\n'
                  'LEFT JOIN metadata qubit_id_metadata ON\n'
                  'qubit_id_metadata.data_id = data.id AND\n'
                  'qubit_id_metadata.name=\'qubit_id\'\n'
                  'ORDER BY id DESC;\n'
                  '\n')
-
+default_query_name = "default_query"
 # def generate_table(dataframe, max_rows=10):
 #     return html.Table(
 #         # Header
@@ -185,7 +184,7 @@ def cross_section_configuration(data=[]):
 def app_layout():
     return html.Div(children=[
         dcc.Location(id='url', refresh=False),
-        html.Div(id="modal-select-measurements", className= "modal",  style={'display':'none'}, children=modal_content()),
+        html.Div(id="modal-select-measurements", className="modal",  style={'display':'none'}, children=modal_content()),
         html.Div([
             #html.H1(id = 'list_of_meas_types', style = {'fontSize': '30', 'text-align': 'left', 'text-indent': '5em'}),
             dcc.Graph(id = 'live-plot-these-measurements', style={'height':'100%', 'width': '70%'})],
@@ -315,27 +314,50 @@ def render_plots(cross_sections, all_traces, all_traces_initial, selected_trace_
     print ('render_plots time: ', end_time-start_time)
     return p
 
-def query_list():
-    result = html.Ul([html.Li(children="BOMZ")])
-    return result
+# def query_list():
+#     result = html.Ul([html.Li(children="BOMZ")])
+#     return result
 
-def modal_content():
+def generate_query_name(query_name):
+    return html.Ul([html.Li(children=query_name)])
+
+def modal_content(queries_names=["BOMZ"]):
+    qnames = ['BOMZ', 'BOMZ2'] #TODO получать эти данные из БД
+    qss = [default_query, ('SELECT qubit_id_metadata.value as qubit_id FROM data\n'
+                 'LEFT JOIN metadata qubit_id_metadata ON\n'
+                 'qubit_id_metadata.data_id = data.id AND\n'
+                 'qubit_id_metadata.name=\'qubit_id\'\n'
+                 'ORDER BY id DESC;\n'
+                 '\n')]
     return [html.Div(className="modal-content",
                      children=[
                          html.Div(className="modal-header", children=[
                              html.Span(className="close", children="×", id="modal-select-measurements-close"),
-                             html.H1(children="Modal header"),
+                             html.H1(children="Measurements query"),
                          ]),
                          html.Div(className="modal-body", children = [
                              html.Div(className="modal-left", children=[
-                                 query_list()
+                                 html.Div("Saved queries"),
+                                 dcc.Dropdown(
+                                     options=[{'label': n, 'value': n} for n in qnames
+                                              ],
+                                     value=''
+                                 ),
                              ]),
+
+                             # html.Div(className="modal-left", children=[
+                             #     generate_query_name(n) for n in queries_names
+                             # ]),
                              html.Div(className="modal-right", children=[
                                  html.Div(className="modal-right-content", children=[
                                      html.Div(children=[dcc.Textarea(id='query', value=default_query, style={'width': '100%', 'height': 100})]),
                                      html.Div(children=[html.Button('Execute', id='execute'),
                                                         html.Button('Select all', id='select-all'),
                                                         html.Button('Deselect all', id='deselect-all')]),
+                                     html.Div(["Query name: ",
+                                               dcc.Input(id='query_name', value='', type='text'),
+                                               html.Button('Save query', id='save-query')]),
+                                     # html.Div(id='my-output'),
                                      html.Div(id='query-results', className='query-results', children=[]),
                                  ]),
                              ])
