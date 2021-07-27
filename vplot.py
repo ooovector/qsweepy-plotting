@@ -56,7 +56,7 @@ default_query = ('SELECT qubit_id_metadata.value as qubit_id, data.* FROM data\n
 def measurement_table():
     return dash_table.DataTable(
         id="meas-id",
-        columns=[{'id' : 'id', 'name' : 'id'}, {'id': 'label', 'name' : 'label'}],
+        columns=[{'id':'id', 'name':'id'}, {'id':'label', 'name':'label'}],
         data=default_measurements(db),
         editable=True,
         row_deletable=True,
@@ -91,6 +91,7 @@ def render_measurement_table(query_results, query_results_selected, current_meas
 def available_traces_table(data=[], column_static_dropdown=[], column_conditional_dropdowns=[], selected_rows=None):
     if selected_rows is None:
         selected_rows = np.arange(len(data))
+    # print(selected_rows)
     return dash_table.DataTable(id="available-traces-table",
                                 data=data,
                                 columns=[
@@ -120,8 +121,7 @@ def available_traces_table(data=[], column_static_dropdown=[], column_conditiona
            State(component_id="available-traces-table", component_property="dropdown_conditional")]
 )
 def render_available_traces_table(loaded_measurements, intermediate_value_meas, current_traces_modified, current_traces, current_selected_traces_modified, current_selected_traces, current_conditional_dropdowns):
-
-    print("LOL NCLICKS UPDATE TRACES")
+    # print("LOL NCLICKS UPDATE TRACES")
 
     # if old state exists, start with it, otherwise default to empty selection
     if loaded_measurements is None: loaded_measurements = []
@@ -143,7 +143,7 @@ def render_available_traces_table(loaded_measurements, intermediate_value_meas, 
 
     data, conditional_dropdowns = add_default_traces(loaded_measurements,
                                                      db, old_traces=old_traces,
-                                                     conditional_dropdowns =conditional_dropdowns)
+                                                     conditional_dropdowns=conditional_dropdowns)
     # column_static_dropdown = [{'id': 'style', 'dropdown': [{'label':s, 'value': s} for id, s in enumerate(styles)]},
     #                           {'id': 'color', 'dropdown': [{'label':c, 'value': c} for c in colors]}]
 
@@ -233,11 +233,13 @@ def save_svg(n_clicks, figure):
 	
 @app.callback(
     Output("available-traces-table", "selected_rows"),
-    [Input('deselect-all-button', 'n_clicks')]
+    Input('deselect-all-button', 'n_clicks')
 )
 def deselect_all(n_clicks):
-    print("LOL NCLICKS", n_clicks)
-    return []
+    if n_clicks is None:
+        raise dash.exceptions.PreventUpdate
+    # print("LOL NCLICKS", n_clicks)
+    else: return []
 
 @app.callback(
     Output(component_id = 'meas_info', component_property = 'children'),
@@ -256,7 +258,7 @@ def write_meas_info(measurements, selected_measurement):
                                    for i in select(ref for ref in db.Reference if ref.this.id == int(value))], columns=['this', 'that', 'ref_type'])
         metadata = pd.DataFrame([(k,v) for k,v in state.metadata.items()], columns=['name', 'value'], index=np.arange(len(state.metadata)), dtype=object)
 
-        print(state.metadata)
+        # print(state.metadata)
 
         #print (metadata.to_dict('rows'), state.metadata)
         retval = [html.P(['Start: '+state.start.strftime('%d-%m-%Y %H:%M:%S.%f'),
@@ -282,7 +284,7 @@ def write_meas_info(measurements, selected_measurement):
                        id='references-container'
                    )
                    ]
-        print (retval, metadata.to_dict('rows'), references.to_dict('rows'))
+        # print(retval, metadata.to_dict('rows'), references.to_dict('rows'))
         return retval
 
 @app.callback(Output('live-plot-these-measurements', 'figure'),
@@ -303,7 +305,7 @@ def render_plots(cross_sections, all_traces, all_traces_initial, selected_trace_
     if not all_traces:
         all_traces = all_traces_initial
     if not selected_trace_ids:
-        selected_trace_ids= selected_trace_ids_initial
+        selected_trace_ids = selected_trace_ids_initial
     #print ('all_traces: ', all_traces)
     #print ('all_traces_initial: ', all_traces_initial)
     #print ('selected_trace_ids: ', selected_trace_ids)
@@ -312,7 +314,7 @@ def render_plots(cross_sections, all_traces, all_traces_initial, selected_trace_
                                    columns=['id', 'dataset', 'op', 'style', 'color', 'x-axis', 'y-axis', 'row', 'col'])
     p = plot(selected_traces, cross_sections, db)
     end_time = time()
-    print ('render_plots time: ', end_time-start_time)
+    # print('render_plots time: ', end_time-start_time)
     return p
 
 def query_list():
