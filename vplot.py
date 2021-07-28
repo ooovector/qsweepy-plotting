@@ -91,7 +91,6 @@ def render_measurement_table(query_results, query_results_selected, current_meas
 def available_traces_table(data=[], column_static_dropdown=[], column_conditional_dropdowns=[], selected_rows=None):
     if selected_rows is None:
         selected_rows = np.arange(len(data))
-    # print(selected_rows)
     return dash_table.DataTable(id="available-traces-table",
                                 data=data,
                                 columns=[
@@ -121,14 +120,12 @@ def available_traces_table(data=[], column_static_dropdown=[], column_conditiona
            State(component_id="available-traces-table", component_property="dropdown_conditional")]
 )
 def render_available_traces_table(loaded_measurements, intermediate_value_meas, current_traces_modified, current_traces, current_selected_traces_modified, current_selected_traces, current_conditional_dropdowns):
-    # print("LOL NCLICKS UPDATE TRACES")
-
+    print("LOL NCLICKS UPDATE TRACES")
     # if old state exists, start with it, otherwise default to empty selection
     if loaded_measurements is None: loaded_measurements = []
     if current_traces_modified: current_traces = current_traces_modified
     if current_selected_traces_modified: current_selected_traces = current_selected_traces_modified
 
-    #print (current_selected_traces, current_selected_traces_modified)
     if len(current_selected_traces): old_traces = [current_traces[i] for i in current_selected_traces]
     else: old_traces = []
 
@@ -141,8 +138,8 @@ def render_available_traces_table(loaded_measurements, intermediate_value_meas, 
     colors = [c for c in webcolors.CSS3_NAMES_TO_HEX.keys()]
     styles = ['2d', '-', '.', 'o']
 
-    data, conditional_dropdowns = add_default_traces(loaded_measurements,
-                                                     db, old_traces=old_traces,
+    data, conditional_dropdowns = add_default_traces(loaded_measurements=loaded_measurements,
+                                                     db=db, old_traces=old_traces,
                                                      conditional_dropdowns=conditional_dropdowns)
     # column_static_dropdown = [{'id': 'style', 'dropdown': [{'label':s, 'value': s} for id, s in enumerate(styles)]},
     #                           {'id': 'color', 'dropdown': [{'label':c, 'value': c} for c in colors]}]
@@ -151,12 +148,14 @@ def render_available_traces_table(loaded_measurements, intermediate_value_meas, 
         'style' : {'options' : [{'label': s, 'value': s} for s in styles]},
         'color' : {'options' : [{'label': c, 'value': c} for c in colors]}}
 
-    return available_traces_table(data,
-                                  column_static_dropdown,
-                                  conditional_dropdowns,
+    selected_rows = np.arange(len(old_traces)) if len(current_traces) else np.arange(len(data))
+
+    return available_traces_table(data=data,
+                                  column_static_dropdown=column_static_dropdown,
+                                  column_conditional_dropdowns=conditional_dropdowns,
                                   # [{'id': 'x-axis', 'dropdowns': conditional_dropdowns},
                                   #  {'id': 'y-axis', 'dropdowns': conditional_dropdowns}],
-                                  np.arange(len(old_traces)) if len(current_traces) else np.arange(len(data)))
+                                  selected_rows=selected_rows)
 
 @app.callback(Output('cross-section-configuration', 'data'),
               [Input(component_id="available-traces-table", component_property="derived_virtual_data"),
@@ -236,9 +235,9 @@ def save_svg(n_clicks, figure):
     Input('deselect-all-button', 'n_clicks')
 )
 def deselect_all(n_clicks):
+    print("LOL NCLICKS", n_clicks)
     if n_clicks is None:
         raise dash.exceptions.PreventUpdate
-    # print("LOL NCLICKS", n_clicks)
     else: return []
 
 @app.callback(
@@ -326,7 +325,7 @@ def modal_content():
                      children=[
                          html.Div(className="modal-header", children=[
                              html.Span(className="close", children="×", id="modal-select-measurements-close"),
-                             html.H1(children="Modal header"),
+                             html.H1(children="Measurements query"),
                          ]),
                          html.Div(className="modal-body", children = [
                              html.Div(className="modal-left", children=[
