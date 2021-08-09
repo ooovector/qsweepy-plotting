@@ -2,6 +2,7 @@ import qsweepy
 from qsweepy import *
 from qsweepy.ponyfiles import *
 import dash
+from conf import *
 import dash_core_components as dcc
 import dash_html_components as html
 import dash_table
@@ -21,6 +22,7 @@ from cmath import phase
 from dash.dependencies import Input, Output, State
 import pandas as pd
 import psycopg2
+from psycopg2 import sql
 import pandas.io.sql as psql
 import logging
 
@@ -33,29 +35,11 @@ app.config['suppress_callback_exceptions'] = True  # Set to `True` if your layou
 app.css.config.serve_locally = True
 app.scripts.config.serve_locally = True
 db = database.MyDatabase()
-path = "/Users/mikhailgoncharov/QtLab/data"
-
-default_query = ('SELECT qubit_id_metadata.value as qubit_id, data.* FROM data\n'
-                 'LEFT JOIN metadata qubit_id_metadata ON\n'
-                 'qubit_id_metadata.data_id = data.id AND\n'
-                 'qubit_id_metadata.name=\'qubit_id\'\n'
-                 'ORDER BY id DESC;\n'
-                 '\n')
-default_query_name = "default_query"
-# def generate_table(dataframe, max_rows=10):
-#     return html.Table(
-#         # Header
-#         [html.Tr([html.Th(col) for col in dataframe.columns])] +
-#
-#         # Body
-#         [html.Tr([
-#             html.Td(str(dataframe.iloc[i][col])) for col in dataframe.columns
-#         ]) for i in range(min(len(dataframe), max_rows))])
 
 def measurement_table():
     return dash_table.DataTable(
         id="meas-id",
-        columns=[{'id' : 'id', 'name' : 'id'}, {'id': 'label', 'name' : 'label'}],
+        columns=[{'id':'id', 'name':'id'}, {'id':'label', 'name':'label'}],
         data=default_measurements(db),
         editable=True,
         row_deletable=True,
@@ -119,9 +103,7 @@ def available_traces_table(data=[], column_static_dropdown=[], column_conditiona
            State(component_id="available-traces-table", component_property="dropdown_conditional")]
 )
 def render_available_traces_table(loaded_measurements, intermediate_value_meas, current_traces_modified, current_traces, current_selected_traces_modified, current_selected_traces, current_conditional_dropdowns):
-
     print("LOL NCLICKS UPDATE TRACES")
-
     # if old state exists, start with it, otherwise default to empty selection
     if loaded_measurements is None: loaded_measurements = []
     if current_traces_modified: current_traces = current_traces_modified
@@ -140,9 +122,9 @@ def render_available_traces_table(loaded_measurements, intermediate_value_meas, 
     colors = [c for c in webcolors.CSS3_NAMES_TO_HEX.keys()]
     styles = ['2d', '-', '.', 'o']
 
-    data, conditional_dropdowns = add_default_traces(loaded_measurements,
-                                                     db, old_traces=old_traces,
-                                                     conditional_dropdowns =conditional_dropdowns)
+    data, conditional_dropdowns = add_default_traces(loaded_measurements=loaded_measurements,
+                                                     db=db, old_traces=old_traces,
+                                                     conditional_dropdowns=conditional_dropdowns)
     # column_static_dropdown = [{'id': 'style', 'dropdown': [{'label':s, 'value': s} for id, s in enumerate(styles)]},
     #                           {'id': 'color', 'dropdown': [{'label':c, 'value': c} for c in colors]}]
 
@@ -150,12 +132,14 @@ def render_available_traces_table(loaded_measurements, intermediate_value_meas, 
         'style' : {'options' : [{'label': s, 'value': s} for s in styles]},
         'color' : {'options' : [{'label': c, 'value': c} for c in colors]}}
 
-    return available_traces_table(data,
-                                  column_static_dropdown,
-                                  conditional_dropdowns,
+    selected_rows = np.arange(len(old_traces)) if len(current_traces) else np.arange(len(data))
+
+    return available_traces_table(data=data,
+                                  column_static_dropdown=column_static_dropdown,
+                                  column_conditional_dropdowns=conditional_dropdowns,
                                   # [{'id': 'x-axis', 'dropdowns': conditional_dropdowns},
                                   #  {'id': 'y-axis', 'dropdowns': conditional_dropdowns}],
-                                  np.arange(len(old_traces)) if len(current_traces) else np.arange(len(data)))
+                                  selected_rows=selected_rows)
 
 @app.callback(Output('cross-section-configuration', 'data'),
               [Input(component_id="available-traces-table", component_property="derived_virtual_data"),
@@ -227,16 +211,18 @@ def save_svg(n_clicks, figure):
     if n_clicks is None:
         return []
     unique_filename = str(uuid.uuid4())
-    pio.write_image(figure, path+"{}.svg".format(unique_filename), width=1200, height=900)
+    pio.write_image(figure, PATH+"{}.svg".format(unique_filename), width=1200, height=900)
     return []
 	
 @app.callback(
     Output("available-traces-table", "selected_rows"),
-    [Input('deselect-all-button', 'n_clicks')]
+    Input('deselect-all-button', 'n_clicks')
 )
 def deselect_all(n_clicks):
     print("LOL NCLICKS", n_clicks)
-    return []
+    if n_clicks is None:
+        raise dash.exceptions.PreventUpdate
+    else: return []
 
 @app.callback(
     Output(component_id = 'meas_info', component_property = 'children'),
@@ -255,7 +241,7 @@ def write_meas_info(measurements, selected_measurement):
                                    for i in select(ref for ref in db.Reference if ref.this.id == int(value))], columns=['this', 'that', 'ref_type'])
         metadata = pd.DataFrame([(k,v) for k,v in state.metadata.items()], columns=['name', 'value'], index=np.arange(len(state.metadata)), dtype=object)
 
-        print(state.metadata)
+        # print(state.metadata)
 
         #print (metadata.to_dict('rows'), state.metadata)
         retval = [html.P(['Start: '+state.start.strftime('%d-%m-%Y %H:%M:%S.%f'),
@@ -302,7 +288,7 @@ def render_plots(cross_sections, all_traces, all_traces_initial, selected_trace_
     if not all_traces:
         all_traces = all_traces_initial
     if not selected_trace_ids:
-        selected_trace_ids= selected_trace_ids_initial
+        selected_trace_ids = selected_trace_ids_initial
     #print ('all_traces: ', all_traces)
     #print ('all_traces_initial: ', all_traces_initial)
     #print ('selected_trace_ids: ', selected_trace_ids)
@@ -318,54 +304,100 @@ def render_plots(cross_sections, all_traces, all_traces_initial, selected_trace_
 #     result = html.Ul([html.Li(children="BOMZ")])
 #     return result
 
-def generate_query_name(query_name):
-    return html.Ul([html.Li(children=query_name)])
 
-def modal_content(queries_names=["BOMZ"]):
-    qnames = ['BOMZ', 'BOMZ2'] #TODO получать эти данные из БД
-    qss = [default_query, ('SELECT qubit_id_metadata.value as qubit_id FROM data\n'
-                 'LEFT JOIN metadata qubit_id_metadata ON\n'
-                 'qubit_id_metadata.data_id = data.id AND\n'
-                 'qubit_id_metadata.name=\'qubit_id\'\n'
-                 'ORDER BY id DESC;\n'
-                 '\n')]
-    return [html.Div(className="modal-content",
-                     children=[
-                         html.Div(className="modal-header", children=[
-                             html.Span(className="close", children="×", id="modal-select-measurements-close"),
-                             html.H1(children="Measurements query"),
-                         ]),
-                         html.Div(className="modal-body", children = [
-                             html.Div(className="modal-left", children=[
-                                 html.Div("Saved queries"),
-                                 dcc.Dropdown(
-                                     options=[{'label': n, 'value': n} for n in qnames
-                                              ],
-                                     value=''
-                                 ),
+def modal_content():
+    try:
+        direct_db = psycopg2.connect(database='qsweepy', user='qsweepy', password='qsweepy')
+        saved_queries = psql.read_sql(EXTRACT_QUERIES, direct_db)
+
+        return [html.Div(className="modal-content",
+                         children=[
+                             html.Div(className="modal-header", children=[
+                                 html.Span(className="close", children="×", id="modal-select-measurements-close"),
+                                 html.H1(children="Measurements query"),
                              ]),
-
-                             # html.Div(className="modal-left", children=[
-                             #     generate_query_name(n) for n in queries_names
-                             # ]),
-                             html.Div(className="modal-right", children=[
-                                 html.Div(className="modal-right-content", children=[
-                                     html.Div(children=[dcc.Textarea(id='query', value=default_query, style={'width': '100%', 'height': 100})]),
-                                     html.Div(children=[html.Button('Execute', id='execute'),
-                                                        html.Button('Select all', id='select-all'),
-                                                        html.Button('Deselect all', id='deselect-all')]),
-                                     html.Div(["Query name: ",
-                                               dcc.Input(id='query_name', value='', type='text'),
-                                               html.Button('Save query', id='save-query')]),
-                                     # html.Div(id='my-output'),
-                                     html.Div(id='query-results', className='query-results', children=[]),
+                             html.Div(className="modal-body", children = [
+                                 html.Div(className="modal-left", children=[
+                                     html.Div("Saved queries"),
+                                     dcc.Dropdown(
+                                         id='dropdown-query-names',
+                                         options=[{'label': n, 'value': n} for n in saved_queries['query_name']
+                                                  ],
+                                         value='BOMZ'
+                                     ),
                                  ]),
-                             ])
-                         ]),
-                         #html.Div(className="modal-footer", children=["Modal footer"])
-                     ])]
+                                 html.Div(className="modal-right", children=[
+                                     html.Div(className="modal-right-content", children=[
+                                         html.Div(children=[dcc.Textarea(id='query', value=DEFAULT_QUERY, style={'width': '100%', 'height': 100})]),
+                                         html.Div(children=[html.Button('Execute', id='execute'),
+                                                            html.Button('Select all', id='select-all'),
+                                                            html.Button('Deselect all', id='deselect-all')]),
+                                         html.Div(["Query name: ",
+                                                   dcc.Input(id='query_name', value='BOMZ', type='text'),
+                                                   html.Button('Save query', id='save-query'),
+                                                   html.Div(id='hidden-div-save-query', style={'display': 'none'})]),
+                                         html.Div(id='query-results', className='query-results', children=[]),
+                                     ]),
+                                 ])
+                             ]),
+                             #html.Div(className="modal-footer", children=["Modal footer"])
+                         ])]
+
+    except Exception as e:
+        error = str(e)
+        return html.Div(children=error)
+    finally:
+        direct_db.close()
 
 #n_clicks_registered = 0
+
+#new shit
+# save query button
+@app.callback(
+    Output(component_id='hidden-div-save-query', component_property="children"),
+    [Input(component_id='save-query', component_property='n_clicks')],
+    state=[State(component_id='query', component_property='value'),
+           State(component_id='query_name', component_property='value')]
+)
+def save_query(n_clicks, query, query_name):
+    query_date = datetime.now(tz=None)
+    if n_clicks is None:
+        raise dash.exceptions.PreventUpdate
+    if query_name is None:
+        query_name = DEFAULT_QUERY_NAME_PREFIX + query_date.strftime("%Y-%m-%d %H:%M:%S")
+    try:
+        direct_db = psycopg2.connect(database='qsweepy', user='qsweepy', password='qsweepy') #TODO: DB_CON_PARAMS
+        cur = direct_db.cursor()
+        saved_queries = psql.read_sql(EXTRACT_QUERIES, direct_db)
+
+        # if query_name in saved_queries.keys():
+        #     return [html.Div(dcc.ConfirmDialogProvider(id='query_name_check',
+        #                                                message='Query with this name is already exist.n\Hit "OK" to overwrite query or "Cancel" to try your luck with another name.'),
+        #                      html.Div(id='overwrite-query', style={'display': 'none'}))]
+        saved_queries = saved_queries.append({'query_name':query_name,
+                                              'query':query,
+                                              'query_date':query_date}, ignore_index=True)
+        print("SAVE_QUERY", n_clicks, query_name, saved_queries, len(saved_queries))
+        cur.execute("""INSERT INTO queries (query_name, query, query_date) VALUES (%s, %s, %s);""",
+                    (query_name, query, query_date))
+
+    except Exception as e:
+        error = str(e)
+        return html.Div(children=error)
+    finally:
+        direct_db.commit()
+        cur.close()
+        direct_db.close()
+
+
+@app.callback(
+    Output(component_id='query', component_property='children'),
+    [Input(component_id='dropdown-query-names', component_property='value')]
+)
+def update_query(value):
+    return value
+
+
 @app.callback(
     Output(component_id='query-results', component_property='children'),
     [Input(component_id='execute', component_property='n_clicks'),
@@ -405,6 +437,8 @@ def update_query_result(n_clicks_execute, n_clicks_select_measurements_open, que
         return html.Div(children=error)
     finally:
         direct_db.close()
+
+
 
 @app.callback(
     Output(component_id='modal-select-measurements', component_property='style'),
