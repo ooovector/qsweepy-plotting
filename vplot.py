@@ -125,9 +125,6 @@ def render_available_traces_table(loaded_measurements, intermediate_value_meas, 
     data, conditional_dropdowns = add_default_traces(loaded_measurements=loaded_measurements,
                                                      db=db, old_traces=old_traces,
                                                      conditional_dropdowns=conditional_dropdowns)
-    # column_static_dropdown = [{'id': 'style', 'dropdown': [{'label':s, 'value': s} for id, s in enumerate(styles)]},
-    #                           {'id': 'color', 'dropdown': [{'label':c, 'value': c} for c in colors]}]
-
     column_static_dropdown = {
         'style' : {'options' : [{'label': s, 'value': s} for s in styles]},
         'color' : {'options' : [{'label': c, 'value': c} for c in colors]}}
@@ -297,51 +294,15 @@ def render_plots(cross_sections, all_traces, all_traces_initial, selected_trace_
                                    columns=['id', 'dataset', 'op', 'style', 'color', 'x-axis', 'y-axis', 'row', 'col'])
     p = plot(selected_traces, cross_sections, db)
     end_time = time()
-    print ('render_plots time: ', end_time-start_time)
+    print('render_plots time: ', end_time-start_time)
     return p
 
-# def query_list():
-#     result = html.Ul([html.Li(children="BOMZ")])
-#     return result
-
-
-def modal_content():
+def get_queries():
     try:
+        print('conntecting to db')
         direct_db = psycopg2.connect(database='qsweepy', user='qsweepy', password='qsweepy')
         saved_queries = psql.read_sql(EXTRACT_QUERIES, direct_db)
-
-        return [html.Div(className="modal-content",
-                         children=[
-                             html.Div(className="modal-header", children=[
-                                 html.Span(className="close", children="×", id="modal-select-measurements-close"),
-                                 html.H1(children="Measurements query"),
-                             ]),
-                             html.Div(className="modal-body", children = [
-                                 html.Div(className="modal-left", children=[
-                                     html.Div("Saved queries"),
-                                     dcc.Dropdown(
-                                         id='dropdown-query-names',
-                                         options=[{'label': n, 'value': n} for n in saved_queries['query_name']
-                                                  ],
-                                         value='BOMZ'
-                                     ),
-                                 ]),
-                                 html.Div(className="modal-right", children=[
-                                     html.Div(className="modal-right-content", children=[
-                                         html.Div(children=[dcc.Textarea(id='query', value=DEFAULT_QUERY, style={'width': '100%', 'height': 100})]),
-                                         html.Div(children=[html.Button('Execute', id='execute'),
-                                                            html.Button('Select all', id='select-all'),
-                                                            html.Button('Deselect all', id='deselect-all')]),
-                                         html.Div(["Query name: ",
-                                                   dcc.Input(id='query_name', value='BOMZ', type='text'),
-                                                   html.Button('Save query', id='save-query'),
-                                                   html.Div(id='hidden-div-save-query', style={'display': 'none'})]),
-                                         html.Div(id='query-results', className='query-results', children=[]),
-                                     ]),
-                                 ])
-                             ]),
-                             #html.Div(className="modal-footer", children=["Modal footer"])
-                         ])]
+        return saved_queries
 
     except Exception as e:
         error = str(e)
@@ -349,10 +310,46 @@ def modal_content():
     finally:
         direct_db.close()
 
+
+def modal_content():
+    saved_queries = get_queries()
+    return [html.Div(className="modal-content",
+                     children=[
+                         html.Div(className="modal-header", children=[
+                             html.Span(className="close", children="×", id="modal-select-measurements-close"),
+                             html.H1(children="Measurements query"),
+                         ]),
+                         html.Div(className="modal-body", children=[
+                             html.Div(className="modal-left", children=[
+                                 html.Div("Saved queries"),
+                                 dcc.Dropdown(
+                                     id='dropdown-query-names',
+                                     options=[{'label': n, 'value': n} for n in saved_queries['query_name']
+                                              ],
+                                     value=None
+                                 ),
+                             ]),
+                             html.Div(className="modal-right", children=[
+                                 html.Div(className="modal-right-content", children=[
+                                     html.Div(children=[dcc.Textarea(id='query', style={'width':'100%','height': 100})]),
+                                     html.Div(children=[html.Button('Execute', id='execute'),
+                                                        html.Button('Select all', id='select-all'),
+                                                        html.Button('Deselect all', id='deselect-all')]),
+                                     html.Div(["Query name: ",
+                                               dcc.Input(id='query_name', type='text'),
+                                               html.Button('Save query', id='save-query'),
+                                               html.Div(id='hidden-div-save-query', style={'display': 'none'})]),
+                                     html.Div(id='query-results', className='query-results', children=[]),
+                                 ]),
+                             ])
+                         ]),
+                         #html.Div(className="modal-footer", children=["Modal footer"])
+                     ])]
+
+
 #n_clicks_registered = 0
 
-#new shit
-# save query button
+
 @app.callback(
     Output(component_id='hidden-div-save-query', component_property="children"),
     [Input(component_id='save-query', component_property='n_clicks')],
@@ -374,9 +371,10 @@ def save_query(n_clicks, query, query_name):
         #     return [html.Div(dcc.ConfirmDialogProvider(id='query_name_check',
         #                                                message='Query with this name is already exist.n\Hit "OK" to overwrite query or "Cancel" to try your luck with another name.'),
         #                      html.Div(id='overwrite-query', style={'display': 'none'}))]
-        saved_queries = saved_queries.append({'query_name':query_name,
-                                              'query':query,
-                                              'query_date':query_date}, ignore_index=True)
+
+        saved_queries = saved_queries.append({'query_name' : query_name,
+                                              'query' : query,
+                                              'query_date' : query_date}, ignore_index=True)
         print("SAVE_QUERY", n_clicks, query_name, saved_queries, len(saved_queries))
         cur.execute("""INSERT INTO queries (query_name, query, query_date) VALUES (%s, %s, %s);""",
                     (query_name, query, query_date))
@@ -391,11 +389,14 @@ def save_query(n_clicks, query, query_name):
 
 
 @app.callback(
-    Output(component_id='query', component_property='children'),
-    [Input(component_id='dropdown-query-names', component_property='value')]
-)
-def update_query(value):
-    return value
+    Output(component_id='query', component_property='value'),
+    [Input(component_id='dropdown-query-names', component_property='value')])
+def update_query(query_name):
+    if query_name is None: query = DEFAULT_QUERY
+    else:
+        saved_queries = get_queries()
+        query = saved_queries[saved_queries['query_name']==query_name]['query'].iloc[0]
+    return query
 
 
 @app.callback(
@@ -418,7 +419,7 @@ def update_query_result(n_clicks_execute, n_clicks_select_measurements_open, que
             old_measurements = [row_id for row_id, i in enumerate(dataframe['id'].tolist()) if i in selected_measurements['id'].tolist()]
         else:
             old_measurements = []
-
+        modal_content()
         return [html.Div(className="query-results-scroll",
                          children=[dash_table.DataTable(
                              # Header
