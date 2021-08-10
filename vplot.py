@@ -264,7 +264,7 @@ def write_meas_info(measurements, selected_measurement):
                        id='references-container'
                    )
                    ]
-        print (retval, metadata.to_dict('rows'), references.to_dict('rows'))
+        print(retval, metadata.to_dict('rows'), references.to_dict('rows'))
         return retval
 
 @app.callback(Output('live-plot-these-measurements', 'figure'),
@@ -299,7 +299,6 @@ def render_plots(cross_sections, all_traces, all_traces_initial, selected_trace_
 
 def get_queries():
     try:
-        print('conntecting to db')
         direct_db = psycopg2.connect(database='qsweepy', user='qsweepy', password='qsweepy')
         saved_queries = psql.read_sql(EXTRACT_QUERIES, direct_db)
         return saved_queries
