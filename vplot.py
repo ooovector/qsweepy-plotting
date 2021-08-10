@@ -337,7 +337,9 @@ def modal_content():
                                      html.Div(["Query name: ",
                                                dcc.Input(id='query_name', type='text'),
                                                html.Button('Save query', id='save-query'),
-                                               html.Div(id='hidden-div-save-query', style={'display': 'none'})]),
+                                               html.Div(id='hidden-div-save-query', style={'display': 'none'}),
+                                               html.Button('Delete query', id='delete-query'),
+                                               html.Div(id='hidden-div-delete-query', style={'display': 'none'})]),
                                      html.Div(id='query-results', className='query-results', children=[]),
                                  ]),
                              ])
@@ -347,7 +349,6 @@ def modal_content():
 
 
 #n_clicks_registered = 0
-
 
 @app.callback(
     Output(component_id='hidden-div-save-query', component_property="children"),
@@ -365,12 +366,6 @@ def save_query(n_clicks, query, query_name):
         direct_db = psycopg2.connect(database='qsweepy', user='qsweepy', password='qsweepy') #TODO: DB_CON_PARAMS
         cur = direct_db.cursor()
         saved_queries = psql.read_sql(EXTRACT_QUERIES, direct_db)
-
-        # if query_name in saved_queries.keys():
-        #     return [html.Div(dcc.ConfirmDialogProvider(id='query_name_check',
-        #                                                message='Query with this name is already exist.n\Hit "OK" to overwrite query or "Cancel" to try your luck with another name.'),
-        #                      html.Div(id='overwrite-query', style={'display': 'none'}))]
-
         saved_queries = saved_queries.append({'query_name' : query_name,
                                               'query' : query,
                                               'query_date' : query_date}, ignore_index=True)
@@ -385,6 +380,28 @@ def save_query(n_clicks, query, query_name):
         cur.close()
         direct_db.close()
 
+@app.callback(
+    Output(component_id='hidden-div-delete-query', component_property="children"),
+    [Input(component_id='delete-query', component_property='n_clicks')],
+    state=[State(component_id='query', component_property='value'),
+           State(component_id='query_name', component_property='value')]
+)
+def delete_query(n_clicks, query, query_name):
+    if n_clicks is None:
+        raise dash.exceptions.PreventUpdate
+    try:
+        direct_db = psycopg2.connect(database='qsweepy', user='qsweepy', password='qsweepy') #TODO: DB_CON_PARAMS
+        print('db ready to delete smth')
+        cur = direct_db.cursor()
+        cur.execute("DELETE FROM queries WHERE query_name = %s;", (query_name,))
+        print(query_name, 'has been deleted')
+    except Exception as e:
+        error = str(e)
+        return html.Div(children=error)
+    finally:
+        direct_db.commit()
+        cur.close()
+        direct_db.close()
 
 @app.callback(
     Output(component_id='query', component_property='value'),
