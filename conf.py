@@ -8,4 +8,3 @@ DEFAULT_QUERY = "SELECT qubit_id_metadata.value as qubit_id, data.* FROM data\n\
                  \n"
 PATH = "/Users/mikhailgoncharov/QtLab/data"
 DEFAULT_QUERY_NAME_PREFIX = "Query from "
-

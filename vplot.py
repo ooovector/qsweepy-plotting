@@ -71,6 +71,7 @@ def render_measurement_table(query_results, query_results_selected, current_meas
                         for measurement in query_results_selected if (not query_results[measurement]['id'] in old_measurement_ids)]
 
     return old_measurements+new_measurements
+
 def available_traces_table(data=[], column_static_dropdown=[], column_conditional_dropdowns=[], selected_rows=None):
     if selected_rows is None:
         selected_rows = np.arange(len(data))
@@ -297,11 +298,15 @@ def render_plots(cross_sections, all_traces, all_traces_initial, selected_trace_
     print('render_plots time: ', end_time-start_time)
     return p
 
-def get_queries():
+def get_queries(columns=None):
     try:
-        direct_db = psycopg2.connect(database='qsweepy', user='qsweepy', password='qsweepy')
+        direct_db = psycopg2.connect(database='qsweepy',
+                                     user='qsweepy',
+                                     password='qsweepy')
         saved_queries = psql.read_sql(EXTRACT_QUERIES, direct_db)
-        return saved_queries
+        if columns:
+            return saved_queries[columns]
+        else: return saved_queries
 
     except Exception as e:
         error = str(e)
@@ -311,7 +316,6 @@ def get_queries():
 
 
 def modal_content():
-    saved_queries = get_queries()
     return [html.Div(className="modal-content",
                      children=[
                          html.Div(className="modal-header", children=[
@@ -323,7 +327,7 @@ def modal_content():
                                  html.Div("Saved queries"),
                                  dcc.RadioItems(
                                      id='query-names-list',
-                                     options=[{'label': n, 'value': n} for n in saved_queries['query_name']
+                                     options=[{'label': n, 'value': n} for n in get_queries('query_name')
                                               ],
                                      value=None
                                  ),
@@ -335,11 +339,12 @@ def modal_content():
                                                         html.Button('Select all', id='select-all'),
                                                         html.Button('Deselect all', id='deselect-all')]),
                                      html.Div(["Query name: ",
-                                               dcc.Input(id='query_name', type='text'),
+                                               dcc.Input(id='query-name', type='text'),
                                                html.Button('Save query', id='save-query'),
                                                html.Div(id='hidden-div-save-query', style={'display': 'none'}),
                                                html.Button('Delete query', id='delete-query'),
-                                               html.Div(id='hidden-div-delete-query', style={'display': 'none'})]),
+                                               html.Div(id='hidden-div-delete-query', style={'display': 'none'}),
+                                               html.Div(id='hidden-div-refresh-modal-content', style={'display': 'none'})]),
                                      html.Div(id='query-results', className='query-results', children=[]),
                                  ]),
                              ])
@@ -354,14 +359,14 @@ def modal_content():
     Output(component_id='hidden-div-save-query', component_property="children"),
     [Input(component_id='save-query', component_property='n_clicks')],
     state=[State(component_id='query', component_property='value'),
-           State(component_id='query_name', component_property='value')]
+           State(component_id='query-name', component_property='value')]
 )
 def save_query(n_clicks, query, query_name):
-    query_date = datetime.now(tz=None)
+    query_date = datetime.now(tz=None).strftime("%Y-%m-%d %H:%M:%S")
     if n_clicks is None:
         raise dash.exceptions.PreventUpdate
     if query_name is None:
-        query_name = DEFAULT_QUERY_NAME_PREFIX + query_date.strftime("%Y-%m-%d %H:%M:%S")
+        query_name = DEFAULT_QUERY_NAME_PREFIX + query_date
     try:
         direct_db = psycopg2.connect(database='qsweepy', user='qsweepy', password='qsweepy') #TODO: DB_CON_PARAMS
         cur = direct_db.cursor()
@@ -383,10 +388,9 @@ def save_query(n_clicks, query, query_name):
 @app.callback(
     Output(component_id='hidden-div-delete-query', component_property="children"),
     [Input(component_id='delete-query', component_property='n_clicks')],
-    state=[State(component_id='query', component_property='value'),
-           State(component_id='query_name', component_property='value')]
+    state=[State(component_id='query-name', component_property='value')]
 )
-def delete_query(n_clicks, query, query_name):
+def delete_query(n_clicks, query_name):
     if n_clicks is None:
         raise dash.exceptions.PreventUpdate
     try:
@@ -402,6 +406,12 @@ def delete_query(n_clicks, query, query_name):
         direct_db.commit()
         cur.close()
         direct_db.close()
+
+@app.callback(
+    Output(component_id='query-name', component_property='value'),
+    [Input(component_id='query-names-list', component_property='value')])
+def auto_fill_query_name(query_name):
+    return query_name
 
 @app.callback(
     Output(component_id='query', component_property='value'),
@@ -454,6 +464,14 @@ def update_query_result(n_clicks_execute, n_clicks_select_measurements_open, que
     finally:
         direct_db.close()
 
+@app.callback(
+    Output(component_id='query-names-list', component_property='options'),
+    [Input(component_id='modal-select-measurements-open', component_property='n_clicks')]
+)
+def refresh_query_list(n_clicks_modal_select_measurements_open):
+    print('refreshed')
+    return [{'label': n, 'value': n} for n in get_queries('query_name')
+                                              ]
 
 
 @app.callback(
