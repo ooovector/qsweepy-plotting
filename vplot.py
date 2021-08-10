@@ -321,8 +321,8 @@ def modal_content():
                          html.Div(className="modal-body", children=[
                              html.Div(className="modal-left", children=[
                                  html.Div("Saved queries"),
-                                 dcc.Dropdown(
-                                     id='dropdown-query-names',
+                                 dcc.RadioItems(
+                                     id='query-names-list',
                                      options=[{'label': n, 'value': n} for n in saved_queries['query_name']
                                               ],
                                      value=None
@@ -376,8 +376,7 @@ def save_query(n_clicks, query, query_name):
                                               'query_date' : query_date}, ignore_index=True)
         print("SAVE_QUERY", n_clicks, query_name, saved_queries, len(saved_queries))
         cur.execute("""INSERT INTO queries (query_name, query, query_date) VALUES (%s, %s, %s);""",
-                    (query_name, query, query_date))
-
+                                           (query_name, query, query_date))
     except Exception as e:
         error = str(e)
         return html.Div(children=error)
@@ -389,7 +388,7 @@ def save_query(n_clicks, query, query_name):
 
 @app.callback(
     Output(component_id='query', component_property='value'),
-    [Input(component_id='dropdown-query-names', component_property='value')])
+    [Input(component_id='query-names-list', component_property='value')])
 def update_query(query_name):
     if query_name is None: query = DEFAULT_QUERY
     else:
