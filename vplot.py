@@ -39,7 +39,7 @@ db = database.MyDatabase()
 def measurement_table():
     return dash_table.DataTable(
         id="meas-id",
-        columns=[{'id': 'id', 'name': 'id'}, {'id': 'label', 'name': 'label'}],
+        columns=[{'id':'id', 'name':'id'}, {'id':'label', 'name':'label'}],
         data=default_measurements(db),
         editable=True,
         row_deletable=True,
@@ -151,7 +151,7 @@ def render_available_traces_table(loaded_measurements, intermediate_value_meas, 
                                   #  {'id': 'y-axis', 'dropdowns': conditional_dropdowns}],
                                   selected_rows=selected_rows)
 
-
+  
 @app.callback(Output('cross-section-configuration', 'data'),
               [Input(component_id="available-traces-table", component_property="derived_virtual_data"),
                Input(component_id="available-traces-table", component_property="data"),
@@ -245,7 +245,6 @@ def deselect_all(n_clicks):
     else:
         return []
 
-
 @app.callback(
     Output(component_id='meas_info', component_property='children'),
     [Input(component_id='meas-id', component_property='derived_virtual_data'),
@@ -258,41 +257,39 @@ def write_meas_info(measurements, selected_measurement):
         return []
     with db_session:
         if value == None: return
-        state = save_exdir.load_exdir(db.Data[int(value)].filename, db)
+        state = save_exdir.load_exdir(db.Data[int(value)].filename ,db)
 
-        references = pd.DataFrame([{'this': i.this.id, 'that': i.that.id, 'ref_type': i.ref_type}
-                                   for i in select(ref for ref in db.Reference if ref.this.id == int(value))],
-                                  columns=['this', 'that', 'ref_type'])
-        metadata = pd.DataFrame([(k, v) for k, v in state.metadata.items()], columns=['name', 'value'],
-                                index=np.arange(len(state.metadata)), dtype=object)
+        references = pd.DataFrame([{'this':i.this.id, 'that': i.that.id, 'ref_type': i.ref_type}
+                                   for i in select(ref for ref in db.Reference if ref.this.id == int(value))], columns=['this', 'that', 'ref_type'])
+        metadata = pd.DataFrame([(k,v) for k,v in state.metadata.items()], columns=['name', 'value'], index=np.arange(len(state.metadata)), dtype=object)
 
         # print(state.metadata)
 
-        # print (metadata.to_dict('rows'), state.metadata)
-        retval = [html.P(['Start: ' + state.start.strftime('%d-%m-%Y %H:%M:%S.%f'),
-                          html.Br(),
-                          'Stop: ' + state.stop.strftime('%d-%m-%Y %H:%M:%S.%f')]),
-                  # html.Div(html.P('Owner: ' + str(state.owner))),
-                  html.Div(children=[
-                      html.H6('Metadata'),
-                      dash_table.DataTable(
-                          columns=[{"name": col, "id": col} for col in metadata.columns],
-                          data=metadata.to_dict('rows'),  ### TODO: add selected rows from meas-id row
-                          id="metadata"
-                      )],
-                      id='metadata-container'
-                  ),
-                  html.Div(children=[
-                      html.H6('References'),
-                      dash_table.DataTable(
-                          columns=[{"name": col, "id": col} for col in references.columns],
-                          data=references.to_dict('rows'),  ### TODO: add selected rows from meas-id row
-                          id="references"
-                      )],
-                      id='references-container'
-                  )
-                  ]
-        print(retval, metadata.to_dict('rows'), references.to_dict('rows'))
+        #print (metadata.to_dict('rows'), state.metadata)
+        retval = [html.P(['Start: '+state.start.strftime('%d-%m-%Y %H:%M:%S.%f'),
+                           html.Br(),
+                           'Stop: '+state.stop.strftime('%d-%m-%Y %H:%M:%S.%f')]),
+                   #html.Div(html.P('Owner: ' + str(state.owner))),
+                   html.Div(children=[
+                       html.H6('Metadata'),
+                       dash_table.DataTable(
+                           columns = [{"name":col, "id":col} for col in metadata.columns],
+                           data=metadata.to_dict('rows'), ### TODO: add selected rows from meas-id row
+                           id="metadata"
+                       )],
+                       id='metadata-container'
+                   ),
+                   html.Div(children=[
+                       html.H6('References'),
+                       dash_table.DataTable(
+                           columns = [{"name":col, "id":col} for col in references.columns],
+                           data=references.to_dict('rows'), ### TODO: add selected rows from meas-id row
+                           id="references"
+                       )],
+                       id='references-container'
+                   )
+                   ]
+        # print(retval, metadata.to_dict('rows'), references.to_dict('rows'))
         return retval
 
 
@@ -316,10 +313,10 @@ def render_plots(cross_sections, all_traces, all_traces_initial, selected_trace_
         all_traces = all_traces_initial
     if not selected_trace_ids:
         selected_trace_ids = selected_trace_ids_initial
-    # print ('all_traces: ', all_traces)
-    # print ('all_traces_initial: ', all_traces_initial)
-    # print ('selected_trace_ids: ', selected_trace_ids)
-    # print ('cross_sections: ', cross_sections)
+    #print ('all_traces: ', all_traces)
+    #print ('all_traces_initial: ', all_traces_initial)
+    #print ('selected_trace_ids: ', selected_trace_ids)
+    #print ('cross_sections: ', cross_sections)
     selected_traces = pd.DataFrame([all_traces[i] for i in range(len(all_traces)) if i in selected_trace_ids],
                                    columns=['id', 'dataset', 'op', 'style', 'color', 'x-axis', 'y-axis', 'row', 'col'])
     p = plot(selected_traces, cross_sections, db)
