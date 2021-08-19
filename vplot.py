@@ -151,7 +151,6 @@ def render_available_traces_table(loaded_measurements, intermediate_value_meas, 
                                   #  {'id': 'y-axis', 'dropdowns': conditional_dropdowns}],
                                   selected_rows=selected_rows)
 
-
 @app.callback(Output('cross-section-configuration', 'data'),
               [Input(component_id="available-traces-table", component_property="derived_virtual_data"),
                Input(component_id="available-traces-table", component_property="data"),
@@ -191,11 +190,12 @@ def app_layout():
         # style = {'position': 'absolute', 'top': '30', 'left': '30', 'width': '1500' , 'height': '1200'}),
         html.Div([
             html.Div([html.H4('Measurements: '), measurement_table()]),
-            html.Button(id="modal-select-measurements-open", children=["Add measurements..."], n_clicks=0),
-            html.Button(id="update-available-traces", children=["Update available traces"]),
-            html.Button(id="deselect-all-button", children=["Deselect all traces"]),
-            html.Button(id="save-svg", children=["Save svg to C:"]),
+            html.Button(id='modal-select-measurements-open', children=['Add measurements...'], n_clicks=0),
+            html.Button(id='update-available-traces', children=['Update available traces']),
+            html.Button(id='deselect-all-button', children=['Deselect all traces']),
+            html.Button(id='save-svg', children=['Save svg to C:']),
             html.Div(id='hidden-div-save-svg', style={'display': 'none'}),
+            html.Data(id='counter-deselect-all-clicks', value=0, style={'display': 'none'}),
             html.Div(id='table_of_meas'),
             html.H4(children='Measurement info'),
             html.Div(id='meas_info'),
@@ -240,7 +240,7 @@ def save_svg(n_clicks, figure):
     state=[State(component_id='counter-deselect-all-clicks', component_property='value')]
 )
 def deselect_all(n_clicks, n_clicks_saved):
-    print("LOL NCLICKS", n_clicks)
+    print("LOL NCLICKS", n_clicks, n_clicks_saved)
     if n_clicks == n_clicks_saved:
         raise dash.exceptions.PreventUpdate
     else:
@@ -248,9 +248,9 @@ def deselect_all(n_clicks, n_clicks_saved):
 
 @app.callback(
     Output(component_id='counter-deselect-all-clicks', component_property='value'),
-    [Input(component_id='deselect-all-button', component_property='n_clicks')])
-def save_del_click_counter(n_clicks_save_deselect_all):
-    return n_clicks_save_deselect_all
+    Input(component_id='deselect-all-button', component_property='n_clicks'))
+def save_del_click_counter(n_clicks_deselect_all):
+    return n_clicks_deselect_all
 
 @app.callback(
     Output(component_id='meas_info', component_property='children'),
