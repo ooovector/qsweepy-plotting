@@ -151,7 +151,6 @@ def render_available_traces_table(loaded_measurements, intermediate_value_meas, 
                                   #  {'id': 'y-axis', 'dropdowns': conditional_dropdowns}],
                                   selected_rows=selected_rows)
 
-  
 @app.callback(Output('cross-section-configuration', 'data'),
               [Input(component_id="available-traces-table", component_property="derived_virtual_data"),
                Input(component_id="available-traces-table", component_property="data"),
@@ -191,11 +190,12 @@ def app_layout():
         # style = {'position': 'absolute', 'top': '30', 'left': '30', 'width': '1500' , 'height': '1200'}),
         html.Div([
             html.Div([html.H4('Measurements: '), measurement_table()]),
-            html.Button(id="modal-select-measurements-open", children=["Add measurements..."], n_clicks=0),
-            html.Button(id="update-available-traces", children=["Update available traces"]),
-            html.Button(id="deselect-all-button", children=["Deselect all traces"]),
-            html.Button(id="save-svg", children=["Save svg to C:"]),
+            html.Button(id='modal-select-measurements-open', children=['Add measurements...'], n_clicks=0),
+            html.Button(id='update-available-traces', children=['Update available traces']),
+            html.Button(id='deselect-all-button', children=['Deselect all traces']),
+            html.Button(id='save-svg', children=['Save svg to C:']),
             html.Div(id='hidden-div-save-svg', style={'display': 'none'}),
+            html.Data(id='counter-deselect-all-clicks', value=0, style={'display': 'none'}),
             html.Div(id='table_of_meas'),
             html.H4(children='Measurement info'),
             html.Div(id='meas_info'),
@@ -236,14 +236,21 @@ def save_svg(n_clicks, figure):
 
 @app.callback(
     Output("available-traces-table", "selected_rows"),
-    Input('deselect-all-button', 'n_clicks')
+    Input('deselect-all-button', 'n_clicks'),
+    state=[State(component_id='counter-deselect-all-clicks', component_property='value')]
 )
-def deselect_all(n_clicks):
-    print("LOL NCLICKS", n_clicks)
-    if n_clicks is None:
+def deselect_all(n_clicks, n_clicks_saved):
+    print("LOL NCLICKS", n_clicks, n_clicks_saved)
+    if n_clicks == n_clicks_saved:
         raise dash.exceptions.PreventUpdate
     else:
         return []
+
+@app.callback(
+    Output(component_id='counter-deselect-all-clicks', component_property='value'),
+    Input(component_id='deselect-all-button', component_property='n_clicks'))
+def save_del_click_counter(n_clicks_deselect_all):
+    return n_clicks_deselect_all
 
 @app.callback(
     Output(component_id='meas_info', component_property='children'),
@@ -257,39 +264,41 @@ def write_meas_info(measurements, selected_measurement):
         return []
     with db_session:
         if value == None: return
-        state = save_exdir.load_exdir(db.Data[int(value)].filename ,db)
+        state = save_exdir.load_exdir(db.Data[int(value)].filename, db)
 
-        references = pd.DataFrame([{'this':i.this.id, 'that': i.that.id, 'ref_type': i.ref_type}
-                                   for i in select(ref for ref in db.Reference if ref.this.id == int(value))], columns=['this', 'that', 'ref_type'])
-        metadata = pd.DataFrame([(k,v) for k,v in state.metadata.items()], columns=['name', 'value'], index=np.arange(len(state.metadata)), dtype=object)
+        references = pd.DataFrame([{'this': i.this.id, 'that': i.that.id, 'ref_type': i.ref_type}
+                                   for i in select(ref for ref in db.Reference if ref.this.id == int(value))],
+                                  columns=['this', 'that', 'ref_type'])
+        metadata = pd.DataFrame([(k, v) for k, v in state.metadata.items()], columns=['name', 'value'],
+                                index=np.arange(len(state.metadata)), dtype=object)
 
         # print(state.metadata)
 
-        #print (metadata.to_dict('rows'), state.metadata)
-        retval = [html.P(['Start: '+state.start.strftime('%d-%m-%Y %H:%M:%S.%f'),
-                           html.Br(),
-                           'Stop: '+state.stop.strftime('%d-%m-%Y %H:%M:%S.%f')]),
-                   #html.Div(html.P('Owner: ' + str(state.owner))),
-                   html.Div(children=[
-                       html.H6('Metadata'),
-                       dash_table.DataTable(
-                           columns = [{"name":col, "id":col} for col in metadata.columns],
-                           data=metadata.to_dict('rows'), ### TODO: add selected rows from meas-id row
-                           id="metadata"
-                       )],
-                       id='metadata-container'
-                   ),
-                   html.Div(children=[
-                       html.H6('References'),
-                       dash_table.DataTable(
-                           columns = [{"name":col, "id":col} for col in references.columns],
-                           data=references.to_dict('rows'), ### TODO: add selected rows from meas-id row
-                           id="references"
-                       )],
-                       id='references-container'
-                   )
-                   ]
-        # print(retval, metadata.to_dict('rows'), references.to_dict('rows'))
+        # print (metadata.to_dict('rows'), state.metadata)
+        retval = [html.P(['Start: ' + state.start.strftime('%d-%m-%Y %H:%M:%S.%f'),
+                          html.Br(),
+                          'Stop: ' + state.stop.strftime('%d-%m-%Y %H:%M:%S.%f')]),
+                  # html.Div(html.P('Owner: ' + str(state.owner))),
+                  html.Div(children=[
+                      html.H6('Metadata'),
+                      dash_table.DataTable(
+                          columns=[{"name": col, "id": col} for col in metadata.columns],
+                          data=metadata.to_dict('rows'),  ### TODO: add selected rows from meas-id row
+                          id="metadata"
+                      )],
+                      id='metadata-container'
+                  ),
+                  html.Div(children=[
+                      html.H6('References'),
+                      dash_table.DataTable(
+                          columns=[{"name": col, "id": col} for col in references.columns],
+                          data=references.to_dict('rows'),  ### TODO: add selected rows from meas-id row
+                          id="references"
+                      )],
+                      id='references-container'
+                  )
+                  ]
+        print(retval, metadata.to_dict('rows'), references.to_dict('rows'))
         return retval
 
 
@@ -313,10 +322,10 @@ def render_plots(cross_sections, all_traces, all_traces_initial, selected_trace_
         all_traces = all_traces_initial
     if not selected_trace_ids:
         selected_trace_ids = selected_trace_ids_initial
-    #print ('all_traces: ', all_traces)
-    #print ('all_traces_initial: ', all_traces_initial)
-    #print ('selected_trace_ids: ', selected_trace_ids)
-    #print ('cross_sections: ', cross_sections)
+    # print ('all_traces: ', all_traces)
+    # print ('all_traces_initial: ', all_traces_initial)
+    # print ('selected_trace_ids: ', selected_trace_ids)
+    # print ('cross_sections: ', cross_sections)
     selected_traces = pd.DataFrame([all_traces[i] for i in range(len(all_traces)) if i in selected_trace_ids],
                                    columns=['id', 'dataset', 'op', 'style', 'color', 'x-axis', 'y-axis', 'row', 'col'])
     p = plot(selected_traces, cross_sections, db)
@@ -363,19 +372,22 @@ def modal_content():
                              html.Div(className="modal-right", children=[
                                  html.Div(className="modal-right-content", children=[
                                      html.Div(
-                                         children=[dcc.Textarea(id='query', style={'width': '100%', 'height': 100})]),
+                                         children=[dcc.Textarea(id='query', value=DEFAULT_QUERY, style={'width': '100%', 'height': 100})]),
                                      html.Div(children=[html.Button('Execute', id='execute'),
-                                                        html.Button('Select all', id='select-all'),
-                                                        html.Button('Deselect all', id='deselect-all')]),
+                                                        html.Button('Select all', id='select-all-button-meas-table', n_clicks=0),
+                                                        html.Button('Deselect all', id='deselect-all-button-meas-table', n_clicks=0),
+                                                        html.Data(id='counter-select-deselect-all-meas-query-table-clicks', value=dict(
+                                                            {'n_clicks_select_all': 0, 'n_clicks_deselect_all': 0}),
+                                                                  style={'display': 'none'})
+                                                        ]),
                                      html.Div(["Query name: ",
                                                dcc.Input(id='query-name', type='text'),
                                                html.Button('Save query', id='save-query', type='submit', n_clicks=0),
-                                               html.Data(id='hidden-div-save-del-clicks', value=dict(
+                                               html.Data(id='counter-save-del-clicks', value=dict(
                                                    {'n_clicks_save_query': 0, 'n_clicks_delete_query': 0}),
                                                          style={'display': 'none'}),
                                                html.Button('Delete query', id='delete-query', type='submit',
                                                            n_clicks=0),
-                                               # html.Div(id='hidden-div-delete-query', style={'display': 'none'}),
                                                ]),
                                      html.Div(id='query-results', className='query-results', children=[]),
                                  ]),
@@ -399,21 +411,23 @@ def auto_fill_query_name(query_name):
     [Input(component_id='query-names-list', component_property='value')])
 def update_query(query_name):
     if query_name is None:
-        query = DEFAULT_QUERY
-    else:
-        saved_queries = get_queries()
-        query = saved_queries[saved_queries['query_name'] == query_name]['query'].iloc[0]
+        query_name = "BOMZ"
+    saved_queries = get_queries()
+    query = saved_queries[saved_queries['query_name'] == query_name]['query'].iloc[0]
     return query
 
 
 @app.callback(
     Output(component_id='query-results', component_property='children'),
     [Input(component_id='execute', component_property='n_clicks'),
-     Input(component_id='modal-select-measurements-open', component_property='n_clicks')],
+     Input(component_id='modal-select-measurements-open', component_property='n_clicks'),
+     Input(component_id='select-all-button-meas-table', component_property='n_clicks'),
+     Input(component_id='deselect-all-button-meas-table', component_property='n_clicks')],
     state=[State(component_id='query', component_property='value'),
-           State(component_id="meas-id", component_property="derived_virtual_data")]
+           State(component_id='counter-select-deselect-all-meas-query-table-clicks', component_property='value'),
+           State(component_id='meas-id', component_property='derived_virtual_data')]
 )
-def update_query_result(n_clicks_execute, n_clicks_select_measurements_open, query, selected_measurements):
+def update_query_result(n_clicks_execute, n_clicks_select_measurements_open, n_clicks_select_all, n_clicks_deselect_all, query, n_clicks_select_deselect_all, selected_measurements):
     # global n_clicks_registered
     # if n_clicks> n_clicks_registered:
     # n_clicks_registered = n_clicks
@@ -422,7 +436,10 @@ def update_query_result(n_clicks_execute, n_clicks_select_measurements_open, que
         direct_db = psycopg2.connect(database='qsweepy', user='qsweepy', password='qsweepy')
         dataframe = psql.read_sql(query, direct_db)
 
-        if 'id' in dataframe.columns:
+        if n_clicks_select_all != n_clicks_select_deselect_all['n_clicks_select_all']:
+            old_measurements = list(np.arange(dataframe.shape[0]))
+
+        elif n_clicks_deselect_all == n_clicks_select_deselect_all['n_clicks_deselect_all']:# and 'id' in dataframe.columns:
             old_measurements = [row_id for row_id, i in enumerate(dataframe['id'].tolist()) if
                                 i in selected_measurements['id'].tolist()]
         else:
@@ -449,7 +466,15 @@ def update_query_result(n_clicks_execute, n_clicks_select_measurements_open, que
 
 
 @app.callback(
-    Output(component_id='hidden-div-save-del-clicks', component_property='value'),
+    Output(component_id='counter-select-deselect-all-meas-query-table-clicks', component_property='value'),
+    [Input(component_id='select-all-button-meas-table', component_property='n_clicks'),
+     Input(component_id='deselect-all-button-meas-table', component_property='n_clicks')])
+def select_deselect_all_click_counter(n_clicks_select_all, n_clicks_deselect_all):
+    return {'n_clicks_select_all': n_clicks_select_all,
+            'n_clicks_deselect_all': n_clicks_deselect_all}
+
+@app.callback(
+    Output(component_id='counter-save-del-clicks', component_property='value'),
     [Input(component_id='save-query', component_property='n_clicks'),
      Input(component_id='delete-query', component_property='n_clicks')])
 def save_del_click_counter(n_clicks_save_query, n_clicks_delete_query):
@@ -463,7 +488,7 @@ def save_del_click_counter(n_clicks_save_query, n_clicks_delete_query):
      Input(component_id='delete-query', component_property='n_clicks')],
     state=[State(component_id='query', component_property='value'),
            State(component_id='query-name', component_property='value'),
-           State(component_id='hidden-div-save-del-clicks', component_property='value')]
+           State(component_id='counter-save-del-clicks', component_property='value')]
 )
 def save_delete_query(n_clicks_save_query, n_clicks_delete_query, query, query_name, saved_n_clicks):
     query_date = datetime.now(tz=None).strftime("%Y-%m-%d %H:%M:%S")
