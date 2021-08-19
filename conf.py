@@ -6,5 +6,6 @@ DEFAULT_QUERY = "SELECT qubit_id_metadata.value as qubit_id, data.* FROM data\n\
                  qubit_id_metadata.name=\'qubit_id\'\n\
                  ORDER BY id DESC;\n\
                  \n"
-PATH = "/Users/mikhailgoncharov/QtLab/data"
+PATH_test = "/Users/mikhailgoncharov/QtLab/data"
+PATH = "C:\\tupoye-govno"
 DEFAULT_QUERY_NAME_PREFIX = "Query from "
