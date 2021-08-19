@@ -410,7 +410,7 @@ def auto_fill_query_name(query_name):
     [Input(component_id='query-names-list', component_property='value')])
 def update_query(query_name):
     saved_queries = get_queries()
-    return saved_queries[saved_queries['query_name'] == query_name]['query'].iloc[0] if query_name in saved_queries['query_name'].to_list() else DEFAULT_QUERY
+    return saved_queries[saved_queries['query_name'] == query_name]['query'].iloc[0] if query_name in list(saved_queries['query_name']) else DEFAULT_QUERY
 
 
 @app.callback(
