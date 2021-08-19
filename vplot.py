@@ -119,7 +119,6 @@ def render_available_traces_table(loaded_measurements, intermediate_value_meas, 
     if current_traces_modified: current_traces = current_traces_modified
     if current_selected_traces_modified: current_selected_traces = current_selected_traces_modified
 
-    # print (current_selected_traces, current_selected_traces_modified)
     if len(current_selected_traces):
         old_traces = [current_traces[i] for i in current_selected_traces]
     else:
@@ -410,11 +409,8 @@ def auto_fill_query_name(query_name):
     Output(component_id='query', component_property='value'),
     [Input(component_id='query-names-list', component_property='value')])
 def update_query(query_name):
-    if query_name is None:
-        query_name = "BOMZ"
     saved_queries = get_queries()
-    query = saved_queries[saved_queries['query_name'] == query_name]['query'].iloc[0]
-    return query
+    return saved_queries[saved_queries['query_name'] == query_name]['query'].iloc[0] if query_name in saved_queries['query_name'].to_list() else DEFAULT_QUERY
 
 
 @app.callback(
