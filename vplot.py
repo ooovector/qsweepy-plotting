@@ -114,6 +114,7 @@ def render_available_traces_table(loaded_measurements, intermediate_value_meas, 
                                   current_selected_traces_modified, current_selected_traces,
                                   current_conditional_dropdowns):
     print("LOL NCLICKS UPDATE TRACES")
+    print("current_selected_traces_modified", current_selected_traces_modified, "current_selected_traces", current_selected_traces)
     # if old state exists, start with it, otherwise default to empty selection
     if loaded_measurements is None: loaded_measurements = []
     if current_traces_modified: current_traces = current_traces_modified
@@ -373,9 +374,8 @@ def modal_content():
                                      html.Div(
                                          children=[dcc.Textarea(id='query', value=DEFAULT_QUERY, style={'width': '100%', 'height': 100})]),
                                      html.Div(children=[html.Button('Execute', id='execute'),
-                                                        html.Button('Select all', id='select-all-button-meas-table', n_clicks=0),
                                                         html.Button('Deselect all', id='deselect-all-button-meas-table', n_clicks=0),
-                                                        html.Data(id='counter-select-deselect-all-meas-query-table-clicks', value=dict(
+                                                        html.Data(id='counter-deselect-all-meas-query-table-clicks', value=dict(
                                                             {'n_clicks_select_all': 0, 'n_clicks_deselect_all': 0}),
                                                                   style={'display': 'none'})
                                                         ]),
@@ -417,13 +417,12 @@ def update_query(query_name):
     Output(component_id='query-results', component_property='children'),
     [Input(component_id='execute', component_property='n_clicks'),
      Input(component_id='modal-select-measurements-open', component_property='n_clicks'),
-     Input(component_id='select-all-button-meas-table', component_property='n_clicks'),
      Input(component_id='deselect-all-button-meas-table', component_property='n_clicks')],
     state=[State(component_id='query', component_property='value'),
-           State(component_id='counter-select-deselect-all-meas-query-table-clicks', component_property='value'),
+           State(component_id='counter-deselect-all-meas-query-table-clicks', component_property='value'),
            State(component_id='meas-id', component_property='derived_virtual_data')]
 )
-def update_query_result(n_clicks_execute, n_clicks_select_measurements_open, n_clicks_select_all, n_clicks_deselect_all, query, n_clicks_select_deselect_all, selected_measurements):
+def update_query_result(n_clicks_execute, n_clicks_select_measurements_open, n_clicks_deselect_all, query, n_clicks_deselect_all_counter, selected_measurements):
     # global n_clicks_registered
     # if n_clicks> n_clicks_registered:
     # n_clicks_registered = n_clicks
@@ -432,10 +431,7 @@ def update_query_result(n_clicks_execute, n_clicks_select_measurements_open, n_c
         direct_db = psycopg2.connect(database='qsweepy', user='qsweepy', password='qsweepy')
         dataframe = psql.read_sql(query, direct_db)
 
-        if n_clicks_select_all != n_clicks_select_deselect_all['n_clicks_select_all']:
-            old_measurements = list(np.arange(dataframe.shape[0]))
-
-        elif n_clicks_deselect_all == n_clicks_select_deselect_all['n_clicks_deselect_all']:# and 'id' in dataframe.columns:
+        if n_clicks_deselect_all == n_clicks_deselect_all_counter:# and 'id' in dataframe.columns:
             old_measurements = [row_id for row_id, i in enumerate(dataframe['id'].tolist()) if
                                 i in selected_measurements['id'].tolist()]
         else:
@@ -462,12 +458,10 @@ def update_query_result(n_clicks_execute, n_clicks_select_measurements_open, n_c
 
 
 @app.callback(
-    Output(component_id='counter-select-deselect-all-meas-query-table-clicks', component_property='value'),
-    [Input(component_id='select-all-button-meas-table', component_property='n_clicks'),
-     Input(component_id='deselect-all-button-meas-table', component_property='n_clicks')])
-def select_deselect_all_click_counter(n_clicks_select_all, n_clicks_deselect_all):
-    return {'n_clicks_select_all': n_clicks_select_all,
-            'n_clicks_deselect_all': n_clicks_deselect_all}
+    Output(component_id='counter-deselect-all-meas-query-table-clicks', component_property='value'),
+    Input(component_id='deselect-all-button-meas-table', component_property='n_clicks'))
+def select_deselect_all_click_counter(n_clicks_deselect_all):
+    return n_clicks_deselect_all
 
 @app.callback(
     Output(component_id='counter-save-del-clicks', component_property='value'),
