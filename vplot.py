@@ -78,7 +78,7 @@ def render_measurement_table(query_results, query_results_selected, current_meas
     return old_measurements + new_measurements
 
 
-def available_traces_table(data=[], column_static_dropdown=[], column_conditional_dropdowns=[], selected_rows=None):
+def available_traces_table(data=[], column_static_dropdown=[], column_conditional_dropdowns=[], selected_rows=None, style_conditions=[]):
     if selected_rows is None:
         selected_rows = np.arange(len(data))
     return dash_table.DataTable(id="available-traces-table",
@@ -97,7 +97,8 @@ def available_traces_table(data=[], column_static_dropdown=[], column_conditiona
                                 row_selectable='multi',
                                 selected_rows=selected_rows,
                                 dropdown=column_static_dropdown,
-                                dropdown_conditional=column_conditional_dropdowns)
+                                dropdown_conditional=column_conditional_dropdowns,
+                                style_data_conditional=style_conditions)
 
 
 @app.callback(
@@ -132,7 +133,28 @@ def render_available_traces_table(loaded_measurements, intermediate_value_meas, 
     else:
         conditional_dropdowns = []
 
-    colors = [c for c in webcolors.CSS3_NAMES_TO_HEX.keys()]
+    # colors = [c for c in webcolors.CSS3_NAMES_TO_HEX.keys()]
+
+    colors = ['black',
+              'red',
+              'blue',
+              'green',
+              'yellow',
+              'maroon',
+              'fuchsia',
+              'deeppink',
+              'lime',
+              'navy',
+              'teal',
+              'aqua',
+              'coral',
+              'cornflowerblue',
+              'gold',
+              'lightseagreen',
+              'orangered',
+              'slateblue',
+              'yellowgreen']
+
     styles = ['2d', '-', '.', 'o']
 
     data, conditional_dropdowns = add_default_traces(loaded_measurements=loaded_measurements,
@@ -142,6 +164,13 @@ def render_available_traces_table(loaded_measurements, intermediate_value_meas, 
         'style': {'options': [{'label': s, 'value': s} for s in styles]},
         'color': {'options': [{'label': c, 'value': c} for c in colors]}}
 
+    style_conditions = [
+        {
+            'if': {'column_id': 'color',
+                   'filter_query': '{color} = ' + c},
+            'backgroundColor': c
+        } for c in colors]
+
     selected_rows = np.arange(len(old_traces)) if len(current_traces) else np.arange(len(data))
 
     return available_traces_table(data=data,
@@ -149,7 +178,8 @@ def render_available_traces_table(loaded_measurements, intermediate_value_meas, 
                                   column_conditional_dropdowns=conditional_dropdowns,
                                   # [{'id': 'x-axis', 'dropdowns': conditional_dropdowns},
                                   #  {'id': 'y-axis', 'dropdowns': conditional_dropdowns}],
-                                  selected_rows=selected_rows)
+                                  selected_rows=selected_rows,
+                                  style_conditions=style_conditions)
 
 @app.callback(Output('cross-section-configuration', 'data'),
               [Input(component_id="available-traces-table", component_property="derived_virtual_data"),
