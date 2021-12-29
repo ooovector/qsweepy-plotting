@@ -1,21 +1,69 @@
 import random
-
+from pony.orm import *
+import pandas as pd
+import numpy as np
 import dash
 import dash_core_components as dcc
 import dash_html_components as html
 from dash.dependencies import Input, Output, State
 import timeit
+from qsweepy.ponyfiles import *
+from qsweepy import *
 
-
+# only for test!!!
+T1_MEASUREMENT_TYPE = "random"
+T2_MEASUREMENT_TYPE = "random"
 
 start = timeit.timeit()
 
-external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
+# external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 app = dash.Dash(__name__,
                 # external_stylesheets=external_stylesheets,
                 meta_tags= [{"name": "viewport",
-                                    "content": "width=device-width, initial-scale=1"}])  # , static_folder='static')
+                             "content": "width=device-width, initial-scale=1"}])  # , static_folder='static')
 app.config['suppress_callback_exceptions'] = True  # Set to `True` if your layout is dynamic, to bypass these checks.
+db = database.MyDatabase()
+
+
+
+def get_t(db): #TODO: Finish data gathering
+    """
+    Gets last qubit_id, T1 and T2 from last measurement  
+    :return: Dictionary with qubit_id, T1 and T2. Convert time into microseconds
+    """
+    with db_session:
+        last_measurement_t_1 = select(
+            (measurement.id, measurement.measurement_type) for measurement in db.Data if measurement.measurement_type == T1_MEASUREMENT_TYPE).order_by(
+            lambda id, measurement_type: desc(id)).first()
+
+        last_measurement_t_2 = select(
+            (measurement.id, measurement.measurement_type) for measurement in db.Data if measurement.measurement_type == T2_MEASUREMENT_TYPE).order_by(
+            lambda id, measurement_type: desc(id)).first()
+
+        print(last_measurement_t_1[0], last_measurement_t_2[0])
+
+        fit_id_t_1 = select(
+            ref.this for ref in db.Reference# if ref.that == last_measurement_t_1[0]
+        ).first()
+
+        print([i for i in fit_id_t_1], type(fit_id_t_1))
+
+        fit_id_t_2 = select(
+            ref.this.metadata for ref in db.Reference# if ref.that == last_measurement_t_2[0]
+        )
+
+
+        print(fit_id_t_1, type(fit_id_t_2))
+
+        T1 = select(
+            measurement.measurement_time for measurement in db.Data if int(measurement.id) == fit_id_t_1)
+        T2 = select(
+            measurement.measurement_time for measurement in db.Data if int(measurement.id) == fit_id_t_2)
+
+        qubit_id = 'svistulka'
+        print({'qubit_id': qubit_id, 'T1': T1, 'T2': T2})
+
+    return {'qubit_id': qubit_id, 'T1': T1, 'T2': T2}
 
 
 @app.callback(
@@ -53,7 +101,7 @@ def update_measurements(n_clicks):
         fin.close()
         print('updated')
 
-def get_measurements():
+def get_measurements():         #It's a zaplatka just for testing
     return {
         'transmon_1_f': random.randint(0, 5),
         'transmon_1_t1': random.randint(0, 5),
@@ -107,13 +155,13 @@ def layout():
                            }
                     ),
             html.Img(id='scheme', src="/assets/scheme_app.svg", width="100%", height="100%"),
-            html.Meta(httpEquiv="refresh", content="600"), #This command tells the html to refresh the page after n seconds.
+            # html.Meta(httpEquiv="refresh", content="600"), #This command tells the html to refresh the page after n seconds.
         ],
             style={
                 'position': 'fixed',
                 'align': 'center',
                 'width': '100%',
-                'height': '100%',
+                'height': '100vh',
                 'background-color': 'RGB(108, 172, 228)',
                 'padding': '0px',
                 'margin': '0px'
