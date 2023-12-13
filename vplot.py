@@ -3,9 +3,9 @@ from qsweepy import *
 from qsweepy.ponyfiles import *
 import dash
 from conf import *
-import dash_core_components as dcc
-import dash_html_components as html
-import dash_table
+from dash import dcc
+from dash import html
+from dash import dash_table
 import numpy as np
 import webcolors
 import datetime
@@ -29,6 +29,10 @@ import logging
 log = logging.getLogger('werkzeug')
 log.setLevel(logging.ERROR)
 
+import sys
+sys.path.append("C:\\qtlab_replacement\\qsweepy\\qsweepy\\libraries")
+from plotly_plot import plot as reduced_plot
+
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 app = dash.Dash(__name__, external_stylesheets=external_stylesheets)  # , static_folder='static')
 app.config['suppress_callback_exceptions'] = True  # Set to `True` if your layout is dynamic, to bypass these checks.
@@ -48,9 +52,9 @@ def measurement_table():
 
 @app.callback(
     Output(component_id="meas-id", component_property="data"),
-    [Input(component_id="query-results-table", component_property="derived_virtual_data"),
-     Input(component_id="query-results-table", component_property="derived_virtual_selected_rows")],
-    state=[State(component_id="meas-id", component_property="derived_virtual_data")]
+    Input(component_id="query-results-table", component_property="derived_virtual_data"),
+    Input(component_id="query-results-table", component_property="derived_virtual_selected_rows"),
+    State(component_id="meas-id", component_property="derived_virtual_data")
 )
 def render_measurement_table(query_results, query_results_selected, current_measurements):
     # print ('render_measurement_table called')
@@ -103,13 +107,13 @@ def available_traces_table(data=[], column_static_dropdown=[], column_conditiona
 
 @app.callback(
     Output(component_id="available-traces-container", component_property="children"),
-    [Input(component_id="meas-id", component_property="derived_virtual_data"),
-     Input(component_id="update-available-traces", component_property="n_clicks")],
-    state=[State(component_id="available-traces-table", component_property="derived_virtual_data"),
-           State(component_id="available-traces-table", component_property="data"),
-           State(component_id="available-traces-table", component_property="derived_virtual_selected_rows"),
-           State(component_id="available-traces-table", component_property="selected_rows"),
-           State(component_id="available-traces-table", component_property="dropdown_conditional")]
+    Input(component_id="meas-id", component_property="derived_virtual_data"),
+     Input(component_id="update-available-traces", component_property="n_clicks"),
+    State(component_id="available-traces-table", component_property="derived_virtual_data"),
+   State(component_id="available-traces-table", component_property="data"),
+   State(component_id="available-traces-table", component_property="derived_virtual_selected_rows"),
+   State(component_id="available-traces-table", component_property="selected_rows"),
+   State(component_id="available-traces-table", component_property="dropdown_conditional")
 )
 def render_available_traces_table(loaded_measurements, intermediate_value_meas, current_traces_modified, current_traces,
                                   current_selected_traces_modified, current_selected_traces,
@@ -182,11 +186,11 @@ def render_available_traces_table(loaded_measurements, intermediate_value_meas, 
                                   style_conditions=style_conditions)
 
 @app.callback(Output('cross-section-configuration', 'data'),
-              [Input(component_id="available-traces-table", component_property="derived_virtual_data"),
+              Input(component_id="available-traces-table", component_property="derived_virtual_data"),
                Input(component_id="available-traces-table", component_property="data"),
                Input(component_id="available-traces-table", component_property="derived_virtual_selected_rows"),
-               Input(component_id="available-traces-table", component_property="selected_rows")],
-              state=[State(component_id='cross-section-configuration', component_property='derived_virtual_data')])
+               Input(component_id="available-traces-table", component_property="selected_rows"),
+              State(component_id='cross-section-configuration', component_property='derived_virtual_data'))
 def cross_section_configuration_data(all_traces, all_traces_initial, selected_trace_ids, selected_trace_ids_initial,
                                      current_config):
     if not all_traces:
@@ -252,8 +256,8 @@ def app_layout():
 
 @app.callback(
     Output(component_id='hidden-div-save-svg', component_property="children"),
-    [Input(component_id="save-svg", component_property="n_clicks")],
-    state=[State('live-plot-these-measurements', 'figure')]
+    Input(component_id="save-svg", component_property="n_clicks"),
+    State('live-plot-these-measurements', 'figure')
 )
 def save_svg(n_clicks, figure):
     import uuid
@@ -267,7 +271,7 @@ def save_svg(n_clicks, figure):
 @app.callback(
     Output("available-traces-table", "selected_rows"),
     Input('deselect-all-button', 'n_clicks'),
-    state=[State(component_id='counter-deselect-all-clicks', component_property='value')]
+    State(component_id='counter-deselect-all-clicks', component_property='value')
 )
 def deselect_all(n_clicks, n_clicks_saved):
     print("LOL NCLICKS", n_clicks, n_clicks_saved)
@@ -333,16 +337,15 @@ def write_meas_info(measurements, selected_measurement):
 
 
 @app.callback(Output('live-plot-these-measurements', 'figure'),
-              [Input(component_id='cross-section-configuration', component_property='derived_virtual_data'),
-               Input(component_id="available-traces-table", component_property="derived_virtual_data")],
-              state=[
-                  # State(component_id="available-traces-table", component_property="derived_virtual_data"),
-                  State(component_id="available-traces-table", component_property="data"),
-                  State(component_id="available-traces-table", component_property="derived_virtual_selected_rows"),
-                  State(component_id="available-traces-table", component_property="selected_rows"),
+                Input(component_id='cross-section-configuration', component_property='derived_virtual_data'),
+                Input(component_id="available-traces-table", component_property="derived_virtual_data"),
+                # State(component_id="available-traces-table", component_property="derived_virtual_data"),
+                State(component_id="available-traces-table", component_property="data"),
+                State(component_id="available-traces-table", component_property="derived_virtual_selected_rows"),
+                State(component_id="available-traces-table", component_property="selected_rows"),
 
                   # Input('interval-component', 'n_intervals')
-              ])
+              )
 def render_plots(cross_sections, all_traces, all_traces_initial, selected_trace_ids, selected_trace_ids_initial,
                  # , n_intervals
                  ):
@@ -358,7 +361,8 @@ def render_plots(cross_sections, all_traces, all_traces_initial, selected_trace_
     # print ('cross_sections: ', cross_sections)
     selected_traces = pd.DataFrame([all_traces[i] for i in range(len(all_traces)) if i in selected_trace_ids],
                                    columns=['id', 'dataset', 'op', 'style', 'color', 'x-axis', 'y-axis', 'row', 'col'])
-    p = plot(selected_traces, cross_sections, db)
+    p = reduced_plot(selected_traces, cross_sections, db, max_data_size=1.5e6)
+    # p = plot(selected_traces, cross_sections, db)
     end_time = time()
     print('render_plots time: ', end_time - start_time)
     return p
@@ -445,12 +449,12 @@ def update_query(query_name):
 
 @app.callback(
     Output(component_id='query-results', component_property='children'),
-    [Input(component_id='execute', component_property='n_clicks'),
-     Input(component_id='modal-select-measurements-open', component_property='n_clicks'),
-     Input(component_id='deselect-all-button-meas-table', component_property='n_clicks')],
-    state=[State(component_id='query', component_property='value'),
-           State(component_id='counter-deselect-all-meas-query-table-clicks', component_property='value'),
-           State(component_id='meas-id', component_property='derived_virtual_data')]
+    Input(component_id='execute', component_property='n_clicks'),
+    Input(component_id='modal-select-measurements-open', component_property='n_clicks'),
+    Input(component_id='deselect-all-button-meas-table', component_property='n_clicks'),
+    State(component_id='query', component_property='value'),
+    State(component_id='counter-deselect-all-meas-query-table-clicks', component_property='value'),
+    State(component_id='meas-id', component_property='derived_virtual_data')
 )
 def update_query_result(n_clicks_execute, n_clicks_select_measurements_open, n_clicks_deselect_all, query, n_clicks_deselect_all_counter, selected_measurements):
     # global n_clicks_registered
@@ -504,11 +508,11 @@ def save_del_click_counter(n_clicks_save_query, n_clicks_delete_query):
 
 @app.callback(
     Output(component_id='query-names-list', component_property='options'),
-    [Input(component_id='save-query', component_property='n_clicks'),
-     Input(component_id='delete-query', component_property='n_clicks')],
-    state=[State(component_id='query', component_property='value'),
-           State(component_id='query-name', component_property='value'),
-           State(component_id='counter-save-del-clicks', component_property='value')]
+    Input(component_id='save-query', component_property='n_clicks'),
+    Input(component_id='delete-query', component_property='n_clicks'),
+    State(component_id='query', component_property='value'),
+    State(component_id='query-name', component_property='value'),
+    State(component_id='counter-save-del-clicks', component_property='value')
 )
 def save_delete_query(n_clicks_save_query, n_clicks_delete_query, query, query_name, saved_n_clicks):
     query_date = datetime.now(tz=None).strftime("%Y-%m-%d %H:%M:%S")
@@ -554,4 +558,4 @@ def modal_select_measurements_open_close(n_clicks_open, n_clicks_close):
 
 if __name__ == '__main__':
     app.layout = app_layout()
-    app.run_server(debug=False)
+    app.run_server(host='0.0.0.0', debug=False)
