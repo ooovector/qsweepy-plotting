@@ -308,7 +308,7 @@ def write_meas_info(measurements, selected_measurement):
 
         # print(state.metadata)
 
-        # print (metadata.to_dict('rows'), state.metadata)
+        # print (metadata.to_dict('records'), state.metadata)
         retval = [html.P(['Start: ' + state.start.strftime('%d-%m-%Y %H:%M:%S.%f'),
                           html.Br(),
                           'Stop: ' + state.stop.strftime('%d-%m-%Y %H:%M:%S.%f')]),
@@ -317,7 +317,7 @@ def write_meas_info(measurements, selected_measurement):
                       html.H6('Metadata'),
                       dash_table.DataTable(
                           columns=[{"name": col, "id": col} for col in metadata.columns],
-                          data=metadata.to_dict('rows'),  ### TODO: add selected rows from meas-id row
+                          data=metadata.to_dict('records'),  ### TODO: add selected rows from meas-id row
                           id="metadata"
                       )],
                       id='metadata-container'
@@ -326,13 +326,13 @@ def write_meas_info(measurements, selected_measurement):
                       html.H6('References'),
                       dash_table.DataTable(
                           columns=[{"name": col, "id": col} for col in references.columns],
-                          data=references.to_dict('rows'),  ### TODO: add selected rows from meas-id row
+                          data=references.to_dict('records'),  ### TODO: add selected rows from meas-id row
                           id="references"
                       )],
                       id='references-container'
                   )
                   ]
-        print(retval, metadata.to_dict('rows'), references.to_dict('rows'))
+        print(retval, metadata.to_dict('records'), references.to_dict('records'))
         return retval
 
 
@@ -478,7 +478,7 @@ def update_query_result(n_clicks_execute, n_clicks_select_measurements_open, n_c
                              style_data_conditional=[{"if": {"column_id": 'id'},
                                                       'background-color': '#c0c0c0',
                                                       'color': 'white'}],
-                             data=dataframe.to_dict('rows'),
+                             data=dataframe.to_dict('records'),
                              row_selectable='multi',
                              selected_rows=old_measurements,  ### TODO: add selected rows from meas-id row
                              id="query-results-table"
