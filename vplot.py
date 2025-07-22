@@ -558,5 +558,5 @@ def modal_select_measurements_open_close(n_clicks_open, n_clicks_close):
 
 if __name__ == '__main__':
     app.layout = app_layout()
-    app.run_server(host='0.0.0.0', debug=False, port=8060)
+    app.run(host='0.0.0.0', debug=False, port=8060)
     # app.run_server(debug=False)
