@@ -1,37 +1,28 @@
-import qsweepy
-from qsweepy import *
-from qsweepy.ponyfiles import *
 import dash
 from conf import *
 from dash import dcc
 from dash import html
 from dash import dash_table
-import numpy as np
-import webcolors
+
 import datetime
 from qsweepy.libraries.plotly_plot import *
+from qsweepy.libraries.plotly_plot import plot as reduced_plot
 
-import exdir
 from qsweepy.ponyfiles.data_structures import *
-import plotly.graph_objs as go
 from pony.orm import *
 import plotly.io as pio
 from qsweepy.ponyfiles import database
-from plotly import *
-from cmath import phase
+
 from dash.dependencies import Input, Output, State
 import pandas as pd
 import psycopg2
-from psycopg2 import sql
 import pandas.io.sql as psql
 import logging
 
 log = logging.getLogger('werkzeug')
 log.setLevel(logging.ERROR)
 
-import sys
-sys.path.append("C:\\qtlab_replacement\\qsweepy\\qsweepy\\libraries")
-from plotly_plot import plot as reduced_plot
+
 
 external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 app = dash.Dash(__name__, external_stylesheets=external_stylesheets)  # , static_folder='static')
