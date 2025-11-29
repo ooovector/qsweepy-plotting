@@ -81,7 +81,7 @@ def measurement_table():
         data=enriched,
         editable=True,
         row_deletable=True,
-        row_selectable='single')
+        row_selectable='multi')
 
 
 @app.callback(
@@ -148,18 +148,27 @@ def available_traces_table(data=[], column_static_dropdown=[], column_conditiona
     State(component_id="available-traces-table", component_property="selected_rows"),
     State(component_id="available-traces-table", component_property="dropdown_conditional")
 )
-def render_available_traces_table(loaded_measurements, intermediate_value_meas, current_traces_modified, current_traces,
+def render_available_traces_table(loaded_measurements, n_clicks_update, n_intervals, current_traces_modified, current_traces,
                                   current_selected_traces_modified, current_selected_traces,
-                                  current_conditional_dropdowns, _n_intervals):
+                                  current_conditional_dropdowns):
     # if old state exists, start with it, otherwise default to empty selection
-    if loaded_measurements is None: loaded_measurements = []
-    if current_traces_modified: current_traces = current_traces_modified
-    if current_selected_traces_modified: current_selected_traces = current_selected_traces_modified
+    if loaded_measurements is None:
+        loaded_measurements = []
+    if current_traces_modified:
+        current_traces = current_traces_modified
+    if current_traces is None:
+        current_traces = []
+    if current_selected_traces_modified:
+        current_selected_traces = current_selected_traces_modified
+    if current_selected_traces is None:
+        current_selected_traces = []
 
-    if len(current_selected_traces):
-        old_traces = [current_traces[i] for i in current_selected_traces]
-    else:
+    old_traces = []
+    if isinstance(current_selected_traces, list) and len(current_selected_traces):
         old_traces = []
+        for idx in current_selected_traces:
+            if isinstance(idx, int) and idx < len(current_traces):
+                old_traces.append(current_traces[idx])
 
     if current_conditional_dropdowns is None:
         current_conditional_dropdowns = []
