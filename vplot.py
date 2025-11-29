@@ -380,23 +380,23 @@ def save_del_click_counter(n_clicks_deselect_all):
     State('meas-id', 'derived_virtual_data')
 )
 def control_auto_refresh(selected_interval_value, selected_rows, measurements):
-    """Enable auto-refresh only if selected measurements contain incomplete ones."""
+    """Enable auto-refresh based on dropdown selection (incomplete check disabled temporarily)."""
     if measurements is None:
         measurements = []
     if selected_rows is None:
         selected_rows = []
     selected = [measurements[i] for i in selected_rows if i < len(measurements)]
-    has_incomplete = any(m.get('incomplete', False) for m in selected)
 
-    if not has_incomplete or selected_interval_value in (None, 'off'):
-        logger.info("auto_refresh disabled has_incomplete=%s interval=%s", has_incomplete, selected_interval_value)
+    # Temporarily ignore incomplete flag to debug auto-refresh.
+    if selected_interval_value in (None, 'off'):
+        logger.info("auto_refresh disabled interval=%s", selected_interval_value)
         return 0, True  # disabled
 
     try:
         interval_ms = int(selected_interval_value)
     except Exception:
         interval_ms = 10000
-    logger.info("auto_refresh enabled interval_ms=%s has_incomplete=%s selected_rows=%s", interval_ms, has_incomplete, selected_rows)
+    logger.info("auto_refresh enabled interval_ms=%s selected_rows=%s", interval_ms, selected_rows)
     return interval_ms, False
 
 @app.callback(
