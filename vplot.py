@@ -4,6 +4,7 @@ import logging
 import os
 import io
 import warnings
+import builtins
 from contextlib import contextmanager, redirect_stdout
 
 from conf import *
@@ -18,6 +19,7 @@ import numpy as np
 
 from qsweepy.libraries.plotly_plot import *
 from qsweepy.libraries.plotly_plot import plot as reduced_plot
+import qsweepy.libraries.plotly_plot as _plotly_plot_module
 from qsweepy.ponyfiles import database
 from qsweepy.ponyfiles.data_structures import *
 from pony.orm import *
@@ -26,6 +28,8 @@ log = logging.getLogger('werkzeug')
 log.setLevel(logging.ERROR)
 # Silence noisy pandas DBAPI warning
 warnings.filterwarnings("ignore", message="pandas only supports SQLAlchemy connectable")
+# Mute stdout inside qsweepy plotly_plot helpers
+_plotly_plot_module.print = lambda *args, **kwargs: None
 
 
 
