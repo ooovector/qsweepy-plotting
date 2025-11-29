@@ -27,8 +27,19 @@ from pony.orm import *
 
 log = logging.getLogger('werkzeug')
 log.setLevel(logging.ERROR)
+# Local logger; verbosity controlled via env VQS_LOG_LEVEL (e.g., INFO/DEBUG)
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+log_level_name = os.getenv("VQS_LOG_LEVEL", "").upper()
+if log_level_name in ("DEBUG", "INFO", "WARNING", "ERROR"):
+    logger.setLevel(getattr(logging, log_level_name))
+    if not logger.handlers:
+        _handler = logging.StreamHandler(stream=sys.stdout)
+        _handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
+        logger.addHandler(_handler)
+    logger.propagate = False
+else:
+    # Default: quiet unless host configures logging
+    logger.setLevel(logging.ERROR)
 # Ensure logs go somewhere even if logging is not configured by host
 if not logger.handlers:
     _handler = logging.StreamHandler(stream=sys.stdout)
