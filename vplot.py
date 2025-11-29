@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 # Ensure logs go somewhere even if logging is not configured by host
 if not logger.handlers:
-    _handler = logging.StreamHandler()
+    _handler = logging.StreamHandler(stream=sys.stdout)
     _handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
     logger.addHandler(_handler)
     logger.propagate = False
