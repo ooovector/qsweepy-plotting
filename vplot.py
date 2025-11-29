@@ -8,7 +8,7 @@ import builtins
 from contextlib import contextmanager, redirect_stdout
 
 from conf import *
-from dash import dash_table, dcc, html
+from dash import dash_table, dcc, html, callback_context
 from dash.dependencies import Input, Output, State
 import pandas as pd
 import pandas.io.sql as psql
@@ -26,6 +26,8 @@ from pony.orm import *
 
 log = logging.getLogger('werkzeug')
 log.setLevel(logging.ERROR)
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
 # Silence noisy pandas DBAPI warning
 warnings.filterwarnings("ignore", message="pandas only supports SQLAlchemy connectable")
 # Mute stdout inside qsweepy plotly_plot helpers
@@ -162,6 +164,10 @@ def render_available_traces_table(loaded_measurements, n_clicks_update, n_interv
         current_selected_traces = current_selected_traces_modified
     if current_selected_traces is None:
         current_selected_traces = []
+
+    trigger = callback_context.triggered[0]["prop_id"] if callback_context.triggered else "none"
+    logger.info("render_available_traces_table trigger=%s n_clicks=%s n_intervals=%s loaded=%s current_traces=%s selected=%s",
+                trigger, n_clicks_update, n_intervals, len(loaded_measurements), len(current_traces), current_selected_traces)
 
     old_traces = []
     if isinstance(current_selected_traces, list) and len(current_selected_traces):
@@ -376,12 +382,14 @@ def control_auto_refresh(selected_interval_value, selected_rows, measurements):
     has_incomplete = any(m.get('incomplete', False) for m in selected)
 
     if not has_incomplete or selected_interval_value in (None, 'off'):
+        logger.info("auto_refresh disabled has_incomplete=%s interval=%s", has_incomplete, selected_interval_value)
         return 0, True  # disabled
 
     try:
         interval_ms = int(selected_interval_value)
     except Exception:
         interval_ms = 10000
+    logger.info("auto_refresh enabled interval_ms=%s has_incomplete=%s selected_rows=%s", interval_ms, has_incomplete, selected_rows)
     return interval_ms, False
 
 @app.callback(
