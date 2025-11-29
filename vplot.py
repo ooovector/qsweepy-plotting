@@ -28,6 +28,12 @@ log = logging.getLogger('werkzeug')
 log.setLevel(logging.ERROR)
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
+# Ensure logs go somewhere even if logging is not configured by host
+if not logger.handlers:
+    _handler = logging.StreamHandler()
+    _handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
+    logger.addHandler(_handler)
+    logger.propagate = False
 # Silence noisy pandas DBAPI warning
 warnings.filterwarnings("ignore", message="pandas only supports SQLAlchemy connectable")
 # Mute stdout inside qsweepy plotly_plot helpers
