@@ -60,10 +60,17 @@ def run_sql_dataframe(query, limit_rows=True):
 
 
 def measurement_table():
+    base_measurements = default_measurements(db)
+    # Ensure incomplete flag exists to support auto-refresh eligibility checks.
+    enriched = [{'id': m.get('id'),
+                 'label': m.get('label', m.get('id')),
+                 'incomplete': m.get('incomplete', False)} for m in base_measurements]
     return dash_table.DataTable(
         id="meas-id",
-        columns=[{'id':'id', 'name':'id'}, {'id':'label', 'name':'label'}],
-        data=default_measurements(db),
+        columns=[{'id': 'id', 'name': 'id'},
+                 {'id': 'label', 'name': 'label'},
+                 {'id': 'incomplete', 'name': 'incomplete', 'hidden': True}],
+        data=enriched,
         editable=True,
         row_deletable=True,
         row_selectable='single')
@@ -94,7 +101,8 @@ def render_measurement_table(query_results, query_results_selected, current_meas
                         not measurement['id'] in deselected_measurement_ids]
     new_measurements = [{'id': query_results[measurement]['id'],
                          'label': (query_results[measurement]['label'] if 'label' in query_results[measurement] else
-                                   query_results[measurement]['id'])}
+                                   query_results[measurement]['id']),
+                         'incomplete': query_results[measurement].get('incomplete', False)}
                         for measurement in query_results_selected if
                         (not query_results[measurement]['id'] in old_measurement_ids)]
 
@@ -247,6 +255,22 @@ def app_layout():
             html.Button(id='update-available-traces', children=['Update available traces']),
             html.Button(id='deselect-all-button', children=['Deselect all traces']),
             html.Button(id='save-svg', children=['Save svg to C:']),
+            html.Div([
+                html.Span('Auto-refresh (incomplete only): '),
+                dcc.Dropdown(
+                    id='auto-refresh-interval',
+                    options=[
+                        {'label': 'Off', 'value': 'off'},
+                        {'label': '5 s', 'value': '5000'},
+                        {'label': '10 s', 'value': '10000'},
+                        {'label': '30 s', 'value': '30000'},
+                        {'label': '60 s', 'value': '60000'},
+                    ],
+                    value='off',
+                    clearable=False,
+                    style={'width': '200px'}
+                )
+            ], style={'marginTop': '4px', 'marginBottom': '4px'}),
             html.Div(id='hidden-div-save-svg', style={'display': 'none'}),
             html.Data(id='counter-deselect-all-clicks', value=0, style={'display': 'none'}),
             html.Div(id='table_of_meas'),
@@ -266,8 +290,9 @@ def app_layout():
         ),
         dcc.Interval(
             id='interval-component',
-            interval=3 * 1000,  # in milliseconds
-            n_intervals=0
+            interval=10 * 1000,  # default in milliseconds
+            n_intervals=0,
+            disabled=True,
         ),
         html.Div(id='intermediate-value-meas'),  # , style={'display': 'none'}),
     ])
@@ -304,6 +329,31 @@ def deselect_all(n_clicks, n_clicks_saved):
     Input(component_id='deselect-all-button', component_property='n_clicks'))
 def save_del_click_counter(n_clicks_deselect_all):
     return n_clicks_deselect_all
+
+@app.callback(
+    Output('interval-component', 'interval'),
+    Output('interval-component', 'disabled'),
+    Input('auto-refresh-interval', 'value'),
+    Input('meas-id', 'derived_virtual_selected_rows'),
+    State('meas-id', 'derived_virtual_data')
+)
+def control_auto_refresh(selected_interval_value, selected_rows, measurements):
+    """Enable auto-refresh only if selected measurements contain incomplete ones."""
+    if measurements is None:
+        measurements = []
+    if selected_rows is None:
+        selected_rows = []
+    selected = [measurements[i] for i in selected_rows if i < len(measurements)]
+    has_incomplete = any(m.get('incomplete', False) for m in selected)
+
+    if not has_incomplete or selected_interval_value in (None, 'off'):
+        return 0, True  # disabled
+
+    try:
+        interval_ms = int(selected_interval_value)
+    except Exception:
+        interval_ms = 10000
+    return interval_ms, False
 
 @app.callback(
     Output(component_id='meas_info', component_property='children'),
@@ -362,10 +412,12 @@ def write_meas_info(measurements, selected_measurement):
                 State(component_id="available-traces-table", component_property="data"),
                 State(component_id="available-traces-table", component_property="derived_virtual_selected_rows"),
                 State(component_id="available-traces-table", component_property="selected_rows"),
+                Input('interval-component', 'n_intervals'),
 
                   # Input('interval-component', 'n_intervals')
               )
 def render_plots(cross_sections, all_traces, all_traces_initial, selected_trace_ids, selected_trace_ids_initial,
+                 _n_intervals,
                  # , n_intervals
                  ):
     from time import time
@@ -384,6 +436,15 @@ def render_plots(cross_sections, all_traces, all_traces_initial, selected_trace_
     # p = plot(selected_traces, cross_sections, db)
     end_time = time()
     print('render_plots time: ', end_time - start_time)
+    # Preserve zoom/pan between updates.
+    try:
+        if hasattr(p, 'update_layout'):
+            p.update_layout(uirevision='keep-zoom')
+        elif isinstance(p, dict):
+            p.setdefault('layout', {})
+            p['layout']['uirevision'] = 'keep-zoom'
+    except Exception as e:
+        print('uirevision set failed', e)
     return p
 
 
