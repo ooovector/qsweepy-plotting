@@ -27,9 +27,9 @@ from pony.orm import *
 
 log = logging.getLogger('werkzeug')
 log.setLevel(logging.ERROR)
-# Local logger; verbosity controlled via env VQS_LOG_LEVEL (e.g., INFO/DEBUG)
+# Local logger; verbosity controlled via env QSWEEPY_PLOTTING_LOG_LEVEL (e.g., INFO/DEBUG)
 logger = logging.getLogger(__name__)
-log_level_name = os.getenv("VQS_LOG_LEVEL", "").upper()
+log_level_name = os.getenv("QSWEEPY_PLOTTING_LOG_LEVEL", "").upper()
 if log_level_name in ("DEBUG", "INFO", "WARNING", "ERROR"):
     logger.setLevel(getattr(logging, log_level_name))
     if not logger.handlers:
