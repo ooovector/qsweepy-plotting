@@ -83,12 +83,9 @@ def measurement_table():
     State(component_id="meas-id", component_property="derived_virtual_data")
 )
 def render_measurement_table(query_results, query_results_selected, current_measurements):
-    # print ('render_measurement_table called')
-    # current_measurements = []
     if current_measurements is None:
         return []
 
-    # print(query_results, query_results_selected, current_measurements)
     if query_results is None:
         query_results = []
     if query_results_selected is None:
@@ -145,8 +142,6 @@ def available_traces_table(data=[], column_static_dropdown=[], column_conditiona
 def render_available_traces_table(loaded_measurements, intermediate_value_meas, current_traces_modified, current_traces,
                                   current_selected_traces_modified, current_selected_traces,
                                   current_conditional_dropdowns):
-    print("LOL NCLICKS UPDATE TRACES")
-    print("current_selected_traces_modified", current_selected_traces_modified, "current_selected_traces", current_selected_traces)
     # if old state exists, start with it, otherwise default to empty selection
     if loaded_measurements is None: loaded_measurements = []
     if current_traces_modified: current_traces = current_traces_modified
@@ -318,7 +313,6 @@ def save_svg(n_clicks, figure):
     State(component_id='counter-deselect-all-clicks', component_property='value')
 )
 def deselect_all(n_clicks, n_clicks_saved):
-    print("LOL NCLICKS", n_clicks, n_clicks_saved)
     if n_clicks == n_clicks_saved:
         raise dash.exceptions.PreventUpdate
     else:
@@ -375,9 +369,6 @@ def write_meas_info(measurements, selected_measurement):
         metadata = pd.DataFrame([(k, v) for k, v in state.metadata.items()], columns=['name', 'value'],
                                 index=np.arange(len(state.metadata)), dtype=object)
 
-        # print(state.metadata)
-
-        # print (metadata.to_dict('records'), state.metadata)
         retval = [html.P(['Start: ' + state.start.strftime('%d-%m-%Y %H:%M:%S.%f'),
                           html.Br(),
                           'Stop: ' + state.stop.strftime('%d-%m-%Y %H:%M:%S.%f')]),
@@ -401,7 +392,6 @@ def write_meas_info(measurements, selected_measurement):
                       id='references-container'
                   )
                   ]
-        print(retval, metadata.to_dict('records'), references.to_dict('records'))
         return retval
 
 
@@ -435,7 +425,6 @@ def render_plots(cross_sections, all_traces, all_traces_initial, selected_trace_
     p = reduced_plot(selected_traces, cross_sections, db, max_data_size=1.5e6)
     # p = plot(selected_traces, cross_sections, db)
     end_time = time()
-    print('render_plots time: ', end_time - start_time)
     # Preserve zoom/pan between updates.
     try:
         if hasattr(p, 'update_layout'):
@@ -443,8 +432,8 @@ def render_plots(cross_sections, all_traces, all_traces_initial, selected_trace_
         elif isinstance(p, dict):
             p.setdefault('layout', {})
             p['layout']['uirevision'] = 'keep-zoom'
-    except Exception as e:
-        print('uirevision set failed', e)
+    except Exception:
+        pass
     return p
 
 
@@ -600,14 +589,10 @@ def save_delete_query(n_clicks_save_query, n_clicks_delete_query, query, query_n
                 cur.execute("""INSERT INTO queries (query_name, query, query_date) VALUES (%s, %s, %s);""",
                             (query_name, query, query_date))
                 direct_db.commit()
-                print(f"{query_name} has been saved")
-
             elif n_clicks_delete_query > saved_n_clicks['n_clicks_delete_query']:
                 saved_queries = saved_queries[saved_queries['query_name'] != query_name]
                 cur.execute("""DELETE FROM queries WHERE query_name = %s;""", (query_name,))
                 direct_db.commit()
-                print(query_name, 'has been deleted')
-
             cur.close()
             return [{'label': n, 'value': n} for n in saved_queries['query_name']]
 
