@@ -183,9 +183,24 @@ def render_available_traces_table(loaded_measurements, intermediate_value_meas, 
 
     styles = ['2d', '-', '.', 'o']
 
-    data, conditional_dropdowns = add_default_traces(loaded_measurements=loaded_measurements,
-                                                     db=db, old_traces=old_traces,
-                                                     conditional_dropdowns=conditional_dropdowns)
+    # Drop measurements that no longer exist in DB to avoid ObjectNotFound
+    filtered_measurements = []
+    with db_session:
+        for m in loaded_measurements:
+            try:
+                if db.Data.get(id=int(m['id'])):
+                    filtered_measurements.append(m)
+            except Exception:
+                continue
+
+    try:
+        data, conditional_dropdowns = add_default_traces(loaded_measurements=filtered_measurements,
+                                                         db=db, old_traces=old_traces,
+                                                         conditional_dropdowns=conditional_dropdowns)
+    except Exception:
+        # If something still fails, return existing traces unchanged
+        data = current_traces if current_traces else []
+        conditional_dropdowns = current_conditional_dropdowns or []
     column_static_dropdown = {
         'style': {'options': [{'label': s, 'value': s} for s in styles]},
         'color': {'options': [{'label': c, 'value': c} for c in colors]}}
@@ -360,8 +375,12 @@ def write_meas_info(measurements, selected_measurement):
     except:
         return []
     with db_session:
-        if value == None: return
-        state = save_exdir.load_exdir(db.Data[int(value)].filename, db)
+        if value is None:
+            return []
+        data_obj = db.Data.get(id=int(value))
+        if data_obj is None:
+            return []
+        state = save_exdir.load_exdir(data_obj.filename, db)
 
         references = pd.DataFrame([{'this': i.this.id, 'that': i.that.id, 'ref_type': i.ref_type}
                                    for i in select(ref for ref in db.Reference if ref.this.id == int(value))],
