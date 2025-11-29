@@ -1,23 +1,24 @@
 import dash
-from conf import *
-from dash import dcc
-from dash import html
-from dash import dash_table
-
 import datetime
-from qsweepy.libraries.plotly_plot import *
-from qsweepy.libraries.plotly_plot import plot as reduced_plot
+import logging
+import os
+from contextlib import contextmanager
 
-from qsweepy.ponyfiles.data_structures import *
-from pony.orm import *
-import plotly.io as pio
-from qsweepy.ponyfiles import database
-
+from conf import *
+from dash import dash_table, dcc, html
 from dash.dependencies import Input, Output, State
 import pandas as pd
-import psycopg2
 import pandas.io.sql as psql
-import logging
+import psycopg2
+from psycopg2 import pool as pg_pool
+import plotly.io as pio
+import numpy as np
+
+from qsweepy.libraries.plotly_plot import *
+from qsweepy.libraries.plotly_plot import plot as reduced_plot
+from qsweepy.ponyfiles import database
+from qsweepy.ponyfiles.data_structures import *
+from pony.orm import *
 
 log = logging.getLogger('werkzeug')
 log.setLevel(logging.ERROR)
@@ -30,6 +31,33 @@ app.config['suppress_callback_exceptions'] = True  # Set to `True` if your layou
 app.css.config.serve_locally = True
 app.scripts.config.serve_locally = True
 db = database.MyDatabase()
+
+# Thread-safe connection pool to avoid opening a new DB connection per callback
+db_pool = pg_pool.SimpleConnectionPool(DB_POOL_MIN, DB_POOL_MAX, **DB_CON_PARAMS)
+
+
+@contextmanager
+def get_conn():
+    conn = db_pool.getconn()
+    try:
+        # Enforce per-connection statement timeout to avoid hanging the UI.
+        with conn.cursor() as cur:
+            cur.execute("SET statement_timeout = %s;", (STATEMENT_TIMEOUT_MS,))
+        yield conn
+    finally:
+        db_pool.putconn(conn)
+
+
+def run_sql_dataframe(query, limit_rows=True):
+    """Execute query via the shared connection pool and return a DataFrame."""
+    # Drop trailing semicolons to avoid syntax errors when wrapping the query.
+    query = query.strip().rstrip(';')
+    if limit_rows:
+        # Wrap user query to avoid shipping massive resultsets to the browser.
+        query = f"SELECT * FROM ({query}) AS subquery_q LIMIT {MAX_QUERY_ROWS}"
+    with get_conn() as conn:
+        return psql.read_sql(query, conn)
+
 
 def measurement_table():
     return dash_table.DataTable(
@@ -361,10 +389,7 @@ def render_plots(cross_sections, all_traces, all_traces_initial, selected_trace_
 
 def get_queries(columns=None):
     try:
-        direct_db = psycopg2.connect(database='qsweepy',
-                                     user='qsweepy',
-                                     password='qsweepy')
-        saved_queries = psql.read_sql(EXTRACT_QUERIES, direct_db)
+        saved_queries = run_sql_dataframe(EXTRACT_QUERIES, limit_rows=False)
         if columns:
             return saved_queries[columns]
         else:
@@ -373,8 +398,6 @@ def get_queries(columns=None):
     except Exception as e:
         error = str(e)
         return html.Div(children=error)
-    finally:
-        direct_db.close()
 
 
 def modal_content():
@@ -453,8 +476,7 @@ def update_query_result(n_clicks_execute, n_clicks_select_measurements_open, n_c
     # n_clicks_registered = n_clicks
     selected_measurements = pd.DataFrame(selected_measurements, columns=['id', 'label'])
     try:
-        direct_db = psycopg2.connect(database='qsweepy', user='qsweepy', password='qsweepy')
-        dataframe = psql.read_sql(query, direct_db)
+        dataframe = run_sql_dataframe(query, limit_rows=True)
 
         if n_clicks_deselect_all == n_clicks_deselect_all_counter:# and 'id' in dataframe.columns:
             old_measurements = [row_id for row_id, i in enumerate(dataframe['id'].tolist()) if
@@ -478,8 +500,6 @@ def update_query_result(n_clicks_execute, n_clicks_select_measurements_open, n_c
     except Exception as e:
         error = str(e)
         return html.Div(children=error)
-    finally:
-        direct_db.close()
 
 
 @app.callback(
@@ -508,34 +528,31 @@ def save_del_click_counter(n_clicks_save_query, n_clicks_delete_query):
 def save_delete_query(n_clicks_save_query, n_clicks_delete_query, query, query_name, saved_n_clicks):
     query_date = datetime.now(tz=None).strftime("%Y-%m-%d %H:%M:%S")
     try:
-        direct_db = psycopg2.connect(database='qsweepy',
-                                     user='qsweepy',
-                                     password='qsweepy')
-        cur = direct_db.cursor()
-        saved_queries = psql.read_sql(EXTRACT_QUERIES, direct_db)
-        if n_clicks_save_query > saved_n_clicks['n_clicks_save_query']:
-            if not query_name:
-                query_name = DEFAULT_QUERY_NAME_PREFIX + query_date
-            saved_queries = saved_queries.append({'query_name': query_name, 'query': query, 'query_date': query_date},
-                                                 ignore_index=True)
-            cur.execute("""INSERT INTO queries (query_name, query, query_date) VALUES (%s, %s, %s);""",
-                        (query_name, query, query_date))
-            print(f"{query_name} has been saved")
+        with get_conn() as direct_db:
+            cur = direct_db.cursor()
+            saved_queries = psql.read_sql(EXTRACT_QUERIES, direct_db)
+            if n_clicks_save_query > saved_n_clicks['n_clicks_save_query']:
+                if not query_name:
+                    query_name = DEFAULT_QUERY_NAME_PREFIX + query_date
+                saved_queries = saved_queries.append({'query_name': query_name, 'query': query, 'query_date': query_date},
+                                                     ignore_index=True)
+                cur.execute("""INSERT INTO queries (query_name, query, query_date) VALUES (%s, %s, %s);""",
+                            (query_name, query, query_date))
+                direct_db.commit()
+                print(f"{query_name} has been saved")
 
-        elif n_clicks_delete_query > saved_n_clicks['n_clicks_delete_query']:
-            saved_queries = saved_queries[saved_queries['query_name'] != query_name]
-            cur.execute("""DELETE FROM queries WHERE query_name = %s;""", (query_name,))
-            print(query_name, 'has been deleted')
+            elif n_clicks_delete_query > saved_n_clicks['n_clicks_delete_query']:
+                saved_queries = saved_queries[saved_queries['query_name'] != query_name]
+                cur.execute("""DELETE FROM queries WHERE query_name = %s;""", (query_name,))
+                direct_db.commit()
+                print(query_name, 'has been deleted')
 
-        return [{'label': n, 'value': n} for n in saved_queries['query_name']]
+            cur.close()
+            return [{'label': n, 'value': n} for n in saved_queries['query_name']]
 
     except Exception as e:
         error = str(e)
         return html.Div(children=error)
-    finally:
-        direct_db.commit()
-        cur.close()
-        direct_db.close()
 
 
 @app.callback(
@@ -547,7 +564,19 @@ def modal_select_measurements_open_close(n_clicks_open, n_clicks_close):
     return {'display': 'block' if (n_clicks_open - n_clicks_close) % 2 else 'none'};
 
 
+app.layout = app_layout()
+server = app.server
+
 if __name__ == '__main__':
-    app.layout = app_layout()
-    app.run(host='0.0.0.0', debug=False, port=8060)
+    # Bind layout once and run under a threaded WSGI server (waitress) when available.
+    host = os.getenv('WSGI_HOST', '0.0.0.0')
+    port = int(os.getenv('WSGI_PORT', '8060'))
+    threads = int(os.getenv('WSGI_THREADS', '4'))
+
+    try:
+        from waitress import serve
+        serve(server, host=host, port=port, threads=threads)
+    except ImportError:
+        # Fallback to built-in dev server if waitress is not installed.
+        app.run(host=host, debug=False, port=port)
     # app.run_server(debug=False)
