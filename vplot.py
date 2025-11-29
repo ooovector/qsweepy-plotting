@@ -140,16 +140,17 @@ def available_traces_table(data=[], column_static_dropdown=[], column_conditiona
 @app.callback(
     Output(component_id="available-traces-container", component_property="children"),
     Input(component_id="meas-id", component_property="derived_virtual_data"),
-     Input(component_id="update-available-traces", component_property="n_clicks"),
+    Input(component_id="update-available-traces", component_property="n_clicks"),
+    Input('interval-component', 'n_intervals'),
     State(component_id="available-traces-table", component_property="derived_virtual_data"),
-   State(component_id="available-traces-table", component_property="data"),
-   State(component_id="available-traces-table", component_property="derived_virtual_selected_rows"),
-   State(component_id="available-traces-table", component_property="selected_rows"),
-   State(component_id="available-traces-table", component_property="dropdown_conditional")
+    State(component_id="available-traces-table", component_property="data"),
+    State(component_id="available-traces-table", component_property="derived_virtual_selected_rows"),
+    State(component_id="available-traces-table", component_property="selected_rows"),
+    State(component_id="available-traces-table", component_property="dropdown_conditional")
 )
 def render_available_traces_table(loaded_measurements, intermediate_value_meas, current_traces_modified, current_traces,
                                   current_selected_traces_modified, current_selected_traces,
-                                  current_conditional_dropdowns):
+                                  current_conditional_dropdowns, _n_intervals):
     # if old state exists, start with it, otherwise default to empty selection
     if loaded_measurements is None: loaded_measurements = []
     if current_traces_modified: current_traces = current_traces_modified
