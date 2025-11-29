@@ -2,7 +2,9 @@ import dash
 import datetime
 import logging
 import os
-from contextlib import contextmanager
+import io
+import warnings
+from contextlib import contextmanager, redirect_stdout
 
 from conf import *
 from dash import dash_table, dcc, html
@@ -22,6 +24,8 @@ from pony.orm import *
 
 log = logging.getLogger('werkzeug')
 log.setLevel(logging.ERROR)
+# Silence noisy pandas DBAPI warning
+warnings.filterwarnings("ignore", message="pandas only supports SQLAlchemy connectable")
 
 
 
@@ -194,9 +198,11 @@ def render_available_traces_table(loaded_measurements, intermediate_value_meas, 
                 continue
 
     try:
-        data, conditional_dropdowns = add_default_traces(loaded_measurements=filtered_measurements,
-                                                         db=db, old_traces=old_traces,
-                                                         conditional_dropdowns=conditional_dropdowns)
+        # Suppress verbose stdout from add_default_traces/reduced_plot internals
+        with redirect_stdout(io.StringIO()):
+            data, conditional_dropdowns = add_default_traces(loaded_measurements=filtered_measurements,
+                                                             db=db, old_traces=old_traces,
+                                                             conditional_dropdowns=conditional_dropdowns)
     except Exception:
         # If something still fails, return existing traces unchanged
         data = current_traces if current_traces else []
@@ -441,7 +447,8 @@ def render_plots(cross_sections, all_traces, all_traces_initial, selected_trace_
     # print ('cross_sections: ', cross_sections)
     selected_traces = pd.DataFrame([all_traces[i] for i in range(len(all_traces)) if i in selected_trace_ids],
                                    columns=['id', 'dataset', 'op', 'style', 'color', 'x-axis', 'y-axis', 'row', 'col'])
-    p = reduced_plot(selected_traces, cross_sections, db, max_data_size=1.5e6)
+    with redirect_stdout(io.StringIO()):
+        p = reduced_plot(selected_traces, cross_sections, db, max_data_size=1.5e6)
     # p = plot(selected_traces, cross_sections, db)
     end_time = time()
     # Preserve zoom/pan between updates.
